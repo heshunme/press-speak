@@ -1,3 +1,5 @@
+using System.Windows.Automation;
+
 namespace HsAsrDictation.Foreground;
 
 public sealed class ForegroundContext
@@ -9,4 +11,6 @@ public sealed class ForegroundContext
     public string ClassName { get; init; } = string.Empty;
 
     public bool IsPasswordField { get; init; }
+
+    public AutomationElement? FocusedElement { get; init; }
 }

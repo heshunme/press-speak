@@ -20,13 +20,14 @@ public sealed class ForegroundContextService
         var title = GetWindowTitle(handle);
         var className = GetClassName(handle);
         var isPasswordField = false;
+        AutomationElement? focusedElement = null;
 
         try
         {
-            var element = AutomationElement.FocusedElement;
-            if (element is not null)
+            focusedElement = AutomationElement.FocusedElement;
+            if (focusedElement is not null)
             {
-                var currentValue = element.GetCurrentPropertyValue(
+                var currentValue = focusedElement.GetCurrentPropertyValue(
                     AutomationElement.IsPasswordProperty,
                     true);
 
@@ -46,7 +47,8 @@ public sealed class ForegroundContextService
             WindowHandle = handle,
             WindowTitle = title,
             ClassName = className,
-            IsPasswordField = isPasswordField
+            IsPasswordField = isPasswordField,
+            FocusedElement = focusedElement
         };
     }
 
@@ -57,7 +59,23 @@ public sealed class ForegroundContextService
             return false;
         }
 
-        return Win32.SetForegroundWindow(context.WindowHandle);
+        var restored = Win32.SetForegroundWindow(context.WindowHandle);
+
+        if (context.FocusedElement is null)
+        {
+            return restored;
+        }
+
+        try
+        {
+            context.FocusedElement.SetFocus();
+        }
+        catch (Exception ex)
+        {
+            _logger.Warn($"恢复焦点控件失败：{ex.Message}");
+        }
+
+        return restored;
     }
 
     private static string GetWindowTitle(IntPtr handle)

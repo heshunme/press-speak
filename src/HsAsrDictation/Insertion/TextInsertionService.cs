@@ -44,7 +44,13 @@ public sealed class TextInsertionService : ITextInsertionService
             };
         }
 
-        _foregroundContextService.Restore(context);
+        var restored = _foregroundContextService.Restore(context);
+        if (!restored)
+        {
+            _logger.Warn("恢复前台窗口失败，将继续尝试注入。");
+        }
+
+        await Task.Delay(50, ct);
 
         if (TrySendUnicode(text))
         {
@@ -82,7 +88,8 @@ public sealed class TextInsertionService : ITextInsertionService
 
         if (!success)
         {
-            _logger.Warn($"SendInput 注入失败，返回值：{sent}");
+            var error = Marshal.GetLastWin32Error();
+            _logger.Warn($"SendInput 注入失败，返回值：{sent}，LastError={error}");
         }
 
         return success;
@@ -143,6 +150,13 @@ public sealed class TextInsertionService : ITextInsertionService
         };
 
         var sent = Win32.SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<Win32.INPUT>());
-        return sent == inputs.Length;
+        if (sent != inputs.Length)
+        {
+            var error = Marshal.GetLastWin32Error();
+            _logger.Warn($"Ctrl+V 注入失败，返回值：{sent}，LastError={error}");
+            return false;
+        }
+
+        return true;
     }
 }
