@@ -24,6 +24,7 @@ public partial class App : System.Windows.Application
     private IAudioCaptureService? _audioCaptureService;
     private IModelProvisioningService? _modelProvisioningService;
     private IAsrEngine? _asrEngine;
+    private IStreamingAsrEngine? _streamingAsrEngine;
     private ForegroundContextService? _foregroundContextService;
     private ITextInsertionService? _textInsertionService;
     private DictationCoordinator? _coordinator;
@@ -45,6 +46,7 @@ public partial class App : System.Windows.Application
         _audioCaptureService = new WaveInAudioCaptureService(_logger);
         _modelProvisioningService = new ModelProvisioningService(_settingsService, _logger);
         _asrEngine = new SherpaFunAsrNanoEngine(_modelProvisioningService, _settingsService, _logger);
+        _streamingAsrEngine = new SherpaStreamingParaformerEngine(_modelProvisioningService, _settingsService, _logger);
         _foregroundContextService = new ForegroundContextService(_logger);
         _textInsertionService = new TextInsertionService(_settingsService, _foregroundContextService, _logger);
         _statusOverlayService = new StatusOverlayService();
@@ -54,6 +56,7 @@ public partial class App : System.Windows.Application
             _audioCaptureService,
             _modelProvisioningService,
             _asrEngine,
+            _streamingAsrEngine,
             _foregroundContextService,
             _textInsertionService,
             _notificationService,
@@ -65,11 +68,11 @@ public partial class App : System.Windows.Application
         _trayIconService.ToggleRecordingRequested += async (_, _) => await _coordinator.ToggleRecordingAsync();
         _trayIconService.ExitRequested += (_, _) => Shutdown();
 
-        _coordinator.StateChanged += (_, state) =>
+        _coordinator.StateChanged += (_, status) =>
             _ = Dispatcher.InvokeAsync(() =>
             {
-                _trayIconService.SetStatus(state.ToDisplayText());
-                _dictationOverlayController.Update(state);
+                _trayIconService.SetStatus(status.OverlayText);
+                _dictationOverlayController.Update(status);
             });
 
         _hotkeyManager.Pressed += async (_, _) => await _coordinator.BeginRecordingAsync();
@@ -78,7 +81,12 @@ public partial class App : System.Windows.Application
 
         _ = _coordinator.EnsureModelReadyAsync(downloadIfMissing: _settingsService.Current.AutoDownloadModel);
         _trayIconService.SetStatus("就绪");
-        _dictationOverlayController.Update(DictationState.Idle);
+        _dictationOverlayController.Update(new DictationStatus
+        {
+            State = DictationState.Idle,
+            Mode = _settingsService.Current.RecognitionMode,
+            OverlayText = DictationState.Idle.ToDisplayText()
+        });
     }
 
     protected override void OnExit(ExitEventArgs e)
@@ -92,6 +100,7 @@ public partial class App : System.Windows.Application
         _hotkeyManager?.Dispose();
         _audioCaptureService?.Dispose();
         _asrEngine?.Dispose();
+        _streamingAsrEngine?.Dispose();
         _statusOverlayService?.Dispose();
         _trayIconService?.Dispose();
         _logger?.Dispose();

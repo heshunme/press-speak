@@ -11,14 +11,16 @@ public sealed class DictationOverlayController
         _statusOverlayService = statusOverlayService;
     }
 
-    public void Update(DictationState state)
+    public void Update(DictationStatus status)
     {
-        if (state == DictationState.Recording)
+        if (status.State == DictationState.Idle)
         {
-            _statusOverlayService.Show(state.ToDisplayText());
+            _statusOverlayService.Hide();
             return;
         }
 
-        _statusOverlayService.Hide();
+        _statusOverlayService.Show(
+            status.OverlayText,
+            status.HasPreview ? status.PreviewText : null);
     }
 }

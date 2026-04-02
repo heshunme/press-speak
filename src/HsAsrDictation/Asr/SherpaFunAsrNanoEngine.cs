@@ -31,6 +31,7 @@ public sealed class SherpaFunAsrNanoEngine : IAsrEngine
     public async Task InitializeAsync(CancellationToken ct = default)
     {
         var ready = await _modelProvisioningService.EnsureReadyAsync(
+            AsrModelKind.Offline,
             _settingsService.Current.AutoDownloadModel,
             ct);
 

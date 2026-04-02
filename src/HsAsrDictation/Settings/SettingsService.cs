@@ -35,7 +35,8 @@ public sealed class SettingsService
         try
         {
             var json = File.ReadAllText(_settingsPath);
-            Current = JsonSerializer.Deserialize<AppSettings>(json, _serializerOptions) ?? AppSettings.CreateDefault();
+            Current = (JsonSerializer.Deserialize<AppSettings>(json, _serializerOptions) ?? AppSettings.CreateDefault())
+                .Normalize();
         }
         catch (Exception ex)
         {
@@ -46,9 +47,9 @@ public sealed class SettingsService
 
     public void Save(AppSettings settings)
     {
-        Current = settings;
+        Current = settings.Normalize();
         Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath)!);
-        File.WriteAllText(_settingsPath, JsonSerializer.Serialize(settings, _serializerOptions));
+        File.WriteAllText(_settingsPath, JsonSerializer.Serialize(Current, _serializerOptions));
         _logger.Info($"设置已保存：{_settingsPath}");
     }
 }

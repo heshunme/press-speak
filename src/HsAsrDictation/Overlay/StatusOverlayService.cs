@@ -11,11 +11,11 @@ public sealed class StatusOverlayService : IStatusOverlayService
         _window = new StatusOverlayWindow();
     }
 
-    public void Show(string text)
+    public void Show(string statusText, string? previewText)
     {
         RunOnUiThread(() =>
         {
-            _window.SetMessage(text);
+            _window.SetMessage(statusText, previewText);
 
             if (!_window.IsVisible)
             {

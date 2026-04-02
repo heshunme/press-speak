@@ -19,12 +19,13 @@ public sealed class ModelProvisioningService : IModelProvisioningService
         _logger = logger;
     }
 
-    public async Task<ModelReadyResult> EnsureReadyAsync(bool downloadIfMissing, CancellationToken ct = default)
+    public async Task<ModelReadyResult> EnsureReadyAsync(AsrModelKind kind, bool downloadIfMissing, CancellationToken ct = default)
     {
         var current = _settingsService.Current;
-        Directory.CreateDirectory(current.ModelRootPath);
+        var modelRootPath = GetModelRootPath(current, kind);
+        Directory.CreateDirectory(modelRootPath);
 
-        var existing = ValidateExistingModel(current.ModelRootPath);
+        var existing = ValidateExistingModel(kind, modelRootPath);
         if (existing.IsReady)
         {
             _logger.Info($"复用现有模型目录：{existing.ModelDirectory}");
@@ -33,25 +34,27 @@ public sealed class ModelProvisioningService : IModelProvisioningService
 
         if (!downloadIfMissing)
         {
-            _logger.Warn($"模型未就绪，且当前配置禁止自动下载：{current.ModelRootPath}");
+            _logger.Warn($"模型未就绪，且当前配置禁止自动下载：{modelRootPath}");
             return existing;
         }
 
-        return await DownloadAsync(ct);
+        return await DownloadAsync(kind, ct);
     }
 
-    public async Task<ModelReadyResult> DownloadAsync(CancellationToken ct = default)
+    public async Task<ModelReadyResult> DownloadAsync(AsrModelKind kind, CancellationToken ct = default)
     {
         var current = _settingsService.Current;
-        Directory.CreateDirectory(current.ModelRootPath);
+        var modelRootPath = GetModelRootPath(current, kind);
+        var definition = ModelManifest.GetDefinition(kind);
+        Directory.CreateDirectory(modelRootPath);
 
-        var archivePath = Path.Combine(current.ModelRootPath, $"{ModelManifest.ExtractedDirectoryName}.tar.bz2");
-        var extractionTarget = current.ModelRootPath;
+        var archivePath = Path.Combine(modelRootPath, $"{definition.ExtractedDirectoryName}.tar.bz2");
+        var extractionTarget = modelRootPath;
 
-        _logger.Info($"开始下载模型：{ModelManifest.ArchiveUrl}");
+        _logger.Info($"开始下载模型：{definition.ArchiveUrl}");
 
         using (var response = await HttpClient.GetAsync(
-                   ModelManifest.ArchiveUrl,
+                   definition.ArchiveUrl,
                    HttpCompletionOption.ResponseHeadersRead,
                    ct))
         {
@@ -85,14 +88,24 @@ public sealed class ModelProvisioningService : IModelProvisioningService
 
         File.Delete(archivePath);
         _logger.Info("模型解压完成。");
-        return ValidateExistingModel(current.ModelRootPath);
+        return ValidateExistingModel(kind, modelRootPath);
     }
 
-    private ModelReadyResult ValidateExistingModel(string modelRootPath)
+    private static string GetModelRootPath(AppSettings settings, AsrModelKind kind) =>
+        kind switch
+        {
+            AsrModelKind.Offline => settings.OfflineModelRootPath,
+            AsrModelKind.Streaming => settings.StreamingModelRootPath,
+            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "未知模型类型。")
+        };
+
+    private ModelReadyResult ValidateExistingModel(AsrModelKind kind, string modelRootPath)
     {
+        var definition = ModelManifest.GetDefinition(kind);
+
         foreach (var candidate in EnumerateCandidateDirectories(modelRootPath))
         {
-            var missingEntries = ModelManifest.RequiredRelativePaths
+            var missingEntries = definition.RequiredRelativePaths
                 .Where(path => !Directory.Exists(Path.Combine(candidate, path)) &&
                                !File.Exists(Path.Combine(candidate, path)))
                 .ToArray();
@@ -110,7 +123,7 @@ public sealed class ModelProvisioningService : IModelProvisioningService
         return new ModelReadyResult
         {
             IsReady = false,
-            MissingEntries = ModelManifest.RequiredRelativePaths,
+            MissingEntries = definition.RequiredRelativePaths,
             ErrorMessage = $"未找到完整模型，期望目录：{modelRootPath}"
         };
     }

@@ -12,11 +12,15 @@ public sealed class SettingsWindowViewModel
     {
         Devices = new ObservableCollection<AudioDeviceInfo>(devices);
         AvailableKeys = new ObservableCollection<Key>(BuildAvailableKeys());
+        RecognitionModes = new ObservableCollection<RecognitionModeOption>(BuildRecognitionModes());
 
         SelectedDeviceName = settings.PreferredInputDeviceName;
-        ModelRootPath = settings.ModelRootPath;
+        OfflineModelRootPath = settings.OfflineModelRootPath;
+        StreamingModelRootPath = settings.StreamingModelRootPath;
         AllowClipboardFallback = settings.AllowClipboardFallback;
         AutoDownloadModel = settings.AutoDownloadModel;
+        EnableStreamingPreview = settings.EnableStreamingPreview;
+        SelectedRecognitionMode = RecognitionModes.First(x => x.Mode == settings.RecognitionMode);
         SelectedKey = settings.Hotkey.Key;
         UseCtrl = settings.Hotkey.Modifiers.HasFlag(HotkeyModifiers.Control);
         UseAlt = settings.Hotkey.Modifiers.HasFlag(HotkeyModifiers.Alt);
@@ -28,13 +32,21 @@ public sealed class SettingsWindowViewModel
 
     public ObservableCollection<Key> AvailableKeys { get; }
 
+    public ObservableCollection<RecognitionModeOption> RecognitionModes { get; }
+
     public string? SelectedDeviceName { get; set; }
 
-    public string ModelRootPath { get; set; }
+    public string OfflineModelRootPath { get; set; }
+
+    public string StreamingModelRootPath { get; set; }
 
     public bool AllowClipboardFallback { get; set; }
 
     public bool AutoDownloadModel { get; set; }
+
+    public bool EnableStreamingPreview { get; set; }
+
+    public RecognitionModeOption SelectedRecognitionMode { get; set; } = null!;
 
     public bool UseCtrl { get; set; }
 
@@ -75,15 +87,44 @@ public sealed class SettingsWindowViewModel
             PreferredInputDeviceName = string.IsNullOrWhiteSpace(SelectedDeviceName)
                 ? null
                 : SelectedDeviceName,
-            ModelRootPath = ModelRootPath,
+            ModelRootPath = ResolveModelRootPath(),
+            OfflineModelRootPath = OfflineModelRootPath,
+            StreamingModelRootPath = StreamingModelRootPath,
             AllowClipboardFallback = AllowClipboardFallback,
             AutoDownloadModel = AutoDownloadModel,
+            RecognitionMode = SelectedRecognitionMode.Mode,
+            EnableStreamingPreview = EnableStreamingPreview,
             Hotkey = new HotkeyGesture
             {
                 Modifiers = modifiers,
                 Key = SelectedKey
             }
         };
+    }
+
+    private static IEnumerable<RecognitionModeOption> BuildRecognitionModes()
+    {
+        yield return new RecognitionModeOption(RecognitionMode.Hybrid, "混合模式");
+        yield return new RecognitionModeOption(RecognitionMode.StreamingOnly, "纯流式");
+        yield return new RecognitionModeOption(RecognitionMode.NonStreaming, "非流式");
+    }
+
+    private string ResolveModelRootPath()
+    {
+        if (!string.IsNullOrWhiteSpace(OfflineModelRootPath) &&
+            !string.IsNullOrWhiteSpace(StreamingModelRootPath))
+        {
+            var offlineParent = System.IO.Path.GetDirectoryName(OfflineModelRootPath.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar));
+            var streamingParent = System.IO.Path.GetDirectoryName(StreamingModelRootPath.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar));
+
+            if (!string.IsNullOrWhiteSpace(offlineParent) &&
+                string.Equals(offlineParent, streamingParent, StringComparison.OrdinalIgnoreCase))
+            {
+                return offlineParent;
+            }
+        }
+
+        return Services.AppPaths.DefaultModelRootPath;
     }
 
     private static IEnumerable<Key> BuildAvailableKeys()
@@ -114,5 +155,10 @@ public sealed class SettingsWindowViewModel
                 yield return key;
             }
         }
+    }
+
+    public sealed record RecognitionModeOption(RecognitionMode Mode, string DisplayName)
+    {
+        public override string ToString() => DisplayName;
     }
 }

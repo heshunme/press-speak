@@ -9,9 +9,13 @@ public partial class StatusOverlayWindow : Window
         InitializeComponent();
     }
 
-    public void SetMessage(string message)
+    public void SetMessage(string statusText, string? previewText)
     {
-        MessageTextBlock.Text = message;
+        StatusTextBlock.Text = statusText;
+        PreviewTextBlock.Text = previewText ?? string.Empty;
+        PreviewTextBlock.Visibility = string.IsNullOrWhiteSpace(previewText)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
     }
 
     public void UpdatePosition()

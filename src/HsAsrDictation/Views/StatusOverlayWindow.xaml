@@ -16,10 +16,18 @@
             BorderBrush="#66FFFFFF"
             BorderThickness="1"
             SnapsToDevicePixels="True">
-        <TextBlock x:Name="MessageTextBlock"
-                   FontSize="16"
-                   FontWeight="SemiBold"
-                   Foreground="White"
-                   Text="录音中" />
+        <StackPanel MaxWidth="720">
+            <TextBlock x:Name="StatusTextBlock"
+                       FontSize="16"
+                       FontWeight="SemiBold"
+                       Foreground="White"
+                       Text="录音中" />
+            <TextBlock x:Name="PreviewTextBlock"
+                       Margin="0,6,0,0"
+                       FontSize="14"
+                       Foreground="#E6FFFFFF"
+                       TextWrapping="Wrap"
+                       Visibility="Collapsed" />
+        </StackPanel>
     </Border>
 </Window>

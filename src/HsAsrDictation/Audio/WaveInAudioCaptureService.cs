@@ -19,6 +19,8 @@ public sealed class WaveInAudioCaptureService : IAudioCaptureService
 
     public bool IsRecording { get; private set; }
 
+    public event EventHandler<AudioChunkAvailableEventArgs>? AudioChunkAvailable;
+
     public IReadOnlyList<AudioDeviceInfo> GetInputDevices()
     {
         var devices = new List<AudioDeviceInfo>();
@@ -118,8 +120,13 @@ public sealed class WaveInAudioCaptureService : IAudioCaptureService
 
     private void OnDataAvailable(object? sender, WaveInEventArgs e)
     {
+        float[]? chunkSamples = null;
+        var samplesWritten = 0;
+
         lock (_syncRoot)
         {
+            chunkSamples = new float[e.BytesRecorded / 2];
+
             for (var i = 0; i < e.BytesRecorded; i += 2)
             {
                 if (_samples.Count >= 16000 * MaxDurationSeconds)
@@ -129,8 +136,20 @@ public sealed class WaveInAudioCaptureService : IAudioCaptureService
                 }
 
                 var sample = BitConverter.ToInt16(e.Buffer, i);
-                _samples.Add(sample / 32768f);
+                var normalizedSample = sample / 32768f;
+                _samples.Add(normalizedSample);
+                chunkSamples[samplesWritten++] = normalizedSample;
             }
+        }
+
+        if (chunkSamples is not null && samplesWritten > 0)
+        {
+            if (samplesWritten != chunkSamples.Length)
+            {
+                Array.Resize(ref chunkSamples, samplesWritten);
+            }
+
+            AudioChunkAvailable?.Invoke(this, new AudioChunkAvailableEventArgs(chunkSamples));
         }
     }
 

@@ -19,9 +19,15 @@ public partial class SettingsWindow : Window
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
-        if (string.IsNullOrWhiteSpace(_viewModel.ModelRootPath))
+        if (string.IsNullOrWhiteSpace(_viewModel.OfflineModelRootPath))
         {
-            System.Windows.MessageBox.Show(this, "模型目录不能为空。", "HsAsrDictation");
+            System.Windows.MessageBox.Show(this, "离线模型目录不能为空。", "HsAsrDictation");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_viewModel.StreamingModelRootPath))
+        {
+            System.Windows.MessageBox.Show(this, "流式模型目录不能为空。", "HsAsrDictation");
             return;
         }
 
