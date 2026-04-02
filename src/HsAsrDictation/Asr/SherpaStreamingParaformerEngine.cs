@@ -75,7 +75,14 @@ public sealed class SherpaStreamingParaformerEngine : IStreamingAsrEngine
 
     public void Dispose()
     {
+        Unload();
+    }
+
+    public void Unload()
+    {
         _recognizer?.Dispose();
+        _recognizer = null;
+        _activeModelDirectory = null;
     }
 
     private sealed class SherpaStreamingParaformerSession : IStreamingAsrSession

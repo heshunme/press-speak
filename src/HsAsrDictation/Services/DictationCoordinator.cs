@@ -18,6 +18,7 @@ public sealed class DictationCoordinator
     private readonly IModelProvisioningService _modelProvisioningService;
     private readonly IAsrEngine _asrEngine;
     private readonly IStreamingAsrEngine _streamingAsrEngine;
+    private readonly ModelResidencyManager _modelResidencyManager;
     private readonly ForegroundContextService _foregroundContextService;
     private readonly ITextInsertionService _textInsertionService;
     private readonly NotificationService _notificationService;
@@ -49,6 +50,10 @@ public sealed class DictationCoordinator
         _modelProvisioningService = modelProvisioningService;
         _asrEngine = asrEngine;
         _streamingAsrEngine = streamingAsrEngine;
+        _modelResidencyManager = new ModelResidencyManager(
+            _modelProvisioningService,
+            _asrEngine,
+            _streamingAsrEngine);
         _foregroundContextService = foregroundContextService;
         _textInsertionService = textInsertionService;
         _notificationService = notificationService;
@@ -73,42 +78,17 @@ public sealed class DictationCoordinator
     {
         try
         {
-            var settings = _settingsService.Current;
-            var offlineReady = await _modelProvisioningService.EnsureReadyAsync(
-                AsrModelKind.Offline,
+            var result = await _modelResidencyManager.EnsureModeReadyAsync(
+                _settingsService.Current.RecognitionMode,
                 downloadIfMissing,
+                reinitialize,
+                allowUnload: _state == DictationState.Idle,
                 ct);
 
-            if (!offlineReady.IsReady)
+            if (!result.Success)
             {
-                _notificationService.Warn("HsAsrDictation", offlineReady.ErrorMessage ?? "离线模型未就绪。");
+                _notificationService.Warn("HsAsrDictation", result.ErrorMessage ?? "模型未就绪。");
                 return;
-            }
-
-            if (reinitialize || !_asrEngine.IsReady)
-            {
-                await _asrEngine.InitializeAsync(ct);
-            }
-
-            if (settings.RecognitionMode == RecognitionMode.NonStreaming)
-            {
-                return;
-            }
-
-            var streamingReady = await _modelProvisioningService.EnsureReadyAsync(
-                AsrModelKind.Streaming,
-                downloadIfMissing,
-                ct);
-
-            if (!streamingReady.IsReady)
-            {
-                _logger.Warn(streamingReady.ErrorMessage ?? "流式模型未就绪。");
-                return;
-            }
-
-            if (reinitialize || !_streamingAsrEngine.IsReady)
-            {
-                await _streamingAsrEngine.InitializeAsync(ct);
             }
         }
         catch (Exception ex)
@@ -122,36 +102,16 @@ public sealed class DictationCoordinator
     {
         try
         {
-            var settings = _settingsService.Current;
-            var offlineReady = await _modelProvisioningService.DownloadAsync(AsrModelKind.Offline, ct);
+            var result = await _modelResidencyManager.RedownloadModeAsync(
+                _settingsService.Current.RecognitionMode,
+                reinitialize,
+                allowUnload: _state == DictationState.Idle,
+                ct);
 
-            if (!offlineReady.IsReady)
+            if (!result.Success)
             {
-                _notificationService.Warn("HsAsrDictation", offlineReady.ErrorMessage ?? "离线模型未就绪。");
+                _notificationService.Warn("HsAsrDictation", result.ErrorMessage ?? "模型未就绪。");
                 return;
-            }
-
-            if (reinitialize || !_asrEngine.IsReady)
-            {
-                await _asrEngine.InitializeAsync(ct);
-            }
-
-            if (settings.RecognitionMode == RecognitionMode.NonStreaming)
-            {
-                return;
-            }
-
-            var streamingReady = await _modelProvisioningService.DownloadAsync(AsrModelKind.Streaming, ct);
-
-            if (!streamingReady.IsReady)
-            {
-                _notificationService.Warn("HsAsrDictation", streamingReady.ErrorMessage ?? "流式模型未就绪。");
-                return;
-            }
-
-            if (reinitialize || !_streamingAsrEngine.IsReady)
-            {
-                await _streamingAsrEngine.InitializeAsync(ct);
             }
         }
         catch (Exception ex)

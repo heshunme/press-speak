@@ -2,6 +2,7 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
@@ -17,12 +18,20 @@
   <ItemGroup>
     <Compile Include="..\..\src\HsAsrDictation\Models\AsrModelDefinition.cs" Link="Source\Models\AsrModelDefinition.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Models\AsrModelKind.cs" Link="Source\Models\AsrModelKind.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Models\IModelProvisioningService.cs" Link="Source\Models\IModelProvisioningService.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Models\ModelReadyResult.cs" Link="Source\Models\ModelReadyResult.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Audio\AudioSilenceTrimmer.cs" Link="Source\AudioSilenceTrimmer.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Models\ModelManifest.cs" Link="Source\ModelManifest.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Asr\AsrResult.cs" Link="Source\Asr\AsrResult.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Asr\StreamingAsrResult.cs" Link="Source\Asr\StreamingAsrResult.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Asr\IAsrEngine.cs" Link="Source\Asr\IAsrEngine.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Asr\IStreamingAsrSession.cs" Link="Source\Asr\IStreamingAsrSession.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Asr\IStreamingAsrEngine.cs" Link="Source\Asr\IStreamingAsrEngine.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Overlay\IStatusOverlayService.cs" Link="Source\IStatusOverlayService.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Overlay\DictationOverlayController.cs" Link="Source\DictationOverlayController.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Settings\RecognitionMode.cs" Link="Source\Settings\RecognitionMode.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Services\DictationStatus.cs" Link="Source\Services\DictationStatus.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Services\DictationState.cs" Link="Source\DictationState.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Services\ModelResidencyManager.cs" Link="Source\Services\ModelResidencyManager.cs" />
   </ItemGroup>
 </Project>

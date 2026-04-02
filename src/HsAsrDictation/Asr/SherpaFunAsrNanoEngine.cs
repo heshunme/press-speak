@@ -124,7 +124,14 @@ public sealed class SherpaFunAsrNanoEngine : IAsrEngine
 
     public void Dispose()
     {
-        _recognizer?.Dispose();
+        Unload();
         _decodeLock.Dispose();
+    }
+
+    public void Unload()
+    {
+        _recognizer?.Dispose();
+        _recognizer = null;
+        _activeModelDirectory = null;
     }
 }

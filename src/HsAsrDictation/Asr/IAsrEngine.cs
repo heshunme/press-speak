@@ -6,5 +6,7 @@ public interface IAsrEngine : IDisposable
 
     Task InitializeAsync(CancellationToken ct = default);
 
+    void Unload();
+
     Task<AsrResult> TranscribeAsync(float[] pcm16kMono, CancellationToken ct = default);
 }

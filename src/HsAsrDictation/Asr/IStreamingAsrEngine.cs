@@ -6,5 +6,7 @@ public interface IStreamingAsrEngine : IDisposable
 
     Task InitializeAsync(CancellationToken ct = default);
 
+    void Unload();
+
     IStreamingAsrSession CreateSession();
 }
