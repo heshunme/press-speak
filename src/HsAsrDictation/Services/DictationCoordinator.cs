@@ -124,7 +124,6 @@ public sealed class DictationCoordinator
             _captureContext = _foregroundContextService.Capture();
             SetState(DictationState.Recording);
             await _audioCaptureService.StartAsync(_settingsService.Current.PreferredInputDeviceName);
-            _notificationService.Info("HsAsrDictation", "正在录音...");
         }
         catch (Exception ex)
         {
@@ -149,19 +148,18 @@ public sealed class DictationCoordinator
 
             if (audio.Duration < TimeSpan.FromMilliseconds(150))
             {
-                _notificationService.Info("HsAsrDictation", "录音过短，已忽略。");
+                _logger.Info("录音时长过短，已忽略本次听写。");
                 return;
             }
 
             var trimmed = AudioSilenceTrimmer.Trim(audio.Samples, 16000);
             if (trimmed.Length < 1600)
             {
-                _notificationService.Info("HsAsrDictation", "未检测到清晰语音。");
+                _logger.Info("未检测到清晰语音，已忽略本次听写。");
                 return;
             }
 
             SetState(DictationState.Decoding);
-            _notificationService.Info("HsAsrDictation", "识别中...");
             var asrResult = await _asrEngine.TranscribeAsync(trimmed);
 
             if (!asrResult.Success || string.IsNullOrWhiteSpace(asrResult.Text))
@@ -183,12 +181,6 @@ public sealed class DictationCoordinator
                     insertionResult.Error ?? "文本注入失败。");
                 return;
             }
-
-            _notificationService.Info(
-                "HsAsrDictation",
-                insertionResult.Method == "Clipboard"
-                    ? "已通过剪贴板回退插入文本。"
-                    : "文本已插入。");
         }
         catch (Exception ex)
         {
@@ -214,27 +206,4 @@ public sealed class DictationCoordinator
         var collapsed = Regex.Replace(input.Trim(), @"\s+", " ");
         return collapsed.Replace(" ,", ",").Replace(" .", ".");
     }
-}
-
-public enum DictationState
-{
-    Idle,
-    Recording,
-    Finalizing,
-    Decoding,
-    Inserting
-}
-
-public static class DictationStateExtensions
-{
-    public static string ToDisplayText(this DictationState state) =>
-        state switch
-        {
-            DictationState.Idle => "就绪",
-            DictationState.Recording => "录音中",
-            DictationState.Finalizing => "结束录音",
-            DictationState.Decoding => "识别中",
-            DictationState.Inserting => "回写中",
-            _ => "未知状态"
-        };
 }

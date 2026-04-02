@@ -7,6 +7,7 @@ using HsAsrDictation.Insertion;
 using HsAsrDictation.Logging;
 using HsAsrDictation.Models;
 using HsAsrDictation.Notifications;
+using HsAsrDictation.Overlay;
 using HsAsrDictation.Services;
 using HsAsrDictation.Settings;
 using HsAsrDictation.Tray;
@@ -27,6 +28,8 @@ public partial class App : System.Windows.Application
     private ITextInsertionService? _textInsertionService;
     private DictationCoordinator? _coordinator;
     private TrayIconService? _trayIconService;
+    private IStatusOverlayService? _statusOverlayService;
+    private DictationOverlayController? _dictationOverlayController;
     private SettingsWindow? _settingsWindow;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -44,6 +47,8 @@ public partial class App : System.Windows.Application
         _asrEngine = new SherpaFunAsrNanoEngine(_modelProvisioningService, _settingsService, _logger);
         _foregroundContextService = new ForegroundContextService(_logger);
         _textInsertionService = new TextInsertionService(_settingsService, _foregroundContextService, _logger);
+        _statusOverlayService = new StatusOverlayService();
+        _dictationOverlayController = new DictationOverlayController(_statusOverlayService);
         _coordinator = new DictationCoordinator(
             _settingsService,
             _audioCaptureService,
@@ -60,7 +65,12 @@ public partial class App : System.Windows.Application
         _trayIconService.ToggleRecordingRequested += async (_, _) => await _coordinator.ToggleRecordingAsync();
         _trayIconService.ExitRequested += (_, _) => Shutdown();
 
-        _coordinator.StateChanged += (_, state) => _trayIconService.SetStatus(state.ToDisplayText());
+        _coordinator.StateChanged += (_, state) =>
+            _ = Dispatcher.InvokeAsync(() =>
+            {
+                _trayIconService.SetStatus(state.ToDisplayText());
+                _dictationOverlayController.Update(state);
+            });
 
         _hotkeyManager.Pressed += async (_, _) => await _coordinator.BeginRecordingAsync();
         _hotkeyManager.Released += async (_, _) => await _coordinator.FinalizeRecordingAsync();
@@ -68,7 +78,7 @@ public partial class App : System.Windows.Application
 
         _ = _coordinator.EnsureModelReadyAsync(downloadIfMissing: _settingsService.Current.AutoDownloadModel);
         _trayIconService.SetStatus("就绪");
-        _notificationService.Info("HsAsrDictation", "应用已启动，托盘常驻。");
+        _dictationOverlayController.Update(DictationState.Idle);
     }
 
     protected override void OnExit(ExitEventArgs e)
@@ -82,6 +92,7 @@ public partial class App : System.Windows.Application
         _hotkeyManager?.Dispose();
         _audioCaptureService?.Dispose();
         _asrEngine?.Dispose();
+        _statusOverlayService?.Dispose();
         _trayIconService?.Dispose();
         _logger?.Dispose();
         base.OnExit(e);

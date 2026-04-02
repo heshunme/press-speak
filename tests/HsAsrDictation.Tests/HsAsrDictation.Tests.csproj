@@ -17,5 +17,8 @@
   <ItemGroup>
     <Compile Include="..\..\src\HsAsrDictation\Audio\AudioSilenceTrimmer.cs" Link="Source\AudioSilenceTrimmer.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Models\ModelManifest.cs" Link="Source\ModelManifest.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Overlay\IStatusOverlayService.cs" Link="Source\IStatusOverlayService.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Overlay\DictationOverlayController.cs" Link="Source\DictationOverlayController.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Services\DictationState.cs" Link="Source\DictationState.cs" />
   </ItemGroup>
 </Project>
