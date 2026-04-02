@@ -10,9 +10,7 @@ $Output = Join-Path $PSScriptRoot "..\artifacts\publish\win-x64"
 dotnet publish $Project `
     -c $Configuration `
     -r win-x64 `
-    --self-contained true `
-    /p:PublishSingleFile=true `
-    /p:IncludeNativeLibrariesForSelfExtract=true `
+    --self-contained false `
     /p:DebugType=None `
     /p:DebugSymbols=false `
     -o $Output
