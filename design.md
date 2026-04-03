@@ -16,7 +16,8 @@
 - 全局 PTT 热键
 - 麦克风录音
 - 模型自动下载与校验
-- 本地识别
+- 本地识别（离线 + 可选流式）
+- 录音期间的流式预览
 - `SendInput` 注入
 - 剪贴板回退
 - 最小设置窗
@@ -24,7 +25,7 @@
 
 不包含：
 
-- 实时流式上屏
+- 持续边说边写回目标输入框
 - 热词偏置
 - ITN 显式开关
 - 云同步
@@ -34,7 +35,7 @@
 
 ### 2.1 技术栈
 
-- 桌面壳：`.NET 8 + WPF`
+- 桌面壳：`.NET 8 + WPF`，托盘与部分辅助窗口使用 Windows Forms 能力
 - 音频：`NAudio`
 - ASR：`org.k2fsa.sherpa.onnx`
 - 模型解压：`SharpCompress`
@@ -53,15 +54,16 @@
 
 ### 2.3 音频链路
 
-- MVP 使用 `WaveInEvent`
+- 当前实现使用 `WaveInEvent`
 - 采样格式固定为 `16 kHz / mono / 16-bit PCM`
 - 单次录音上限 `30 秒`
 - 结束录音后先做简单头尾静音修剪，再送入 ASR
 
 说明：
 
-- 设计稿建议 WASAPI；当前实现先用 `WaveInEvent` 降低首版集成风险。
-- 如果后续设备兼容性不足，再切换到 `WasapiCapture`。
+- 当前实现先用 `WaveInEvent` 降低首版集成风险。
+- 如果后续设备兼容性不足，再评估切换到 `WasapiCapture`。
+- 录音期间会产出流式识别预览，但最终写回仍发生在结束录音之后。
 
 ### 2.4 文本回写
 
@@ -80,18 +82,29 @@
 
 默认模型来源：
 
-- `https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-funasr-nano-int8-2025-12-30.tar.bz2`
+- 离线模型：`https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-funasr-nano-int8-2025-12-30.tar.bz2`
+- 流式模型：`https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-paraformer-bilingual-zh-en.tar.bz2`
 
 校验条件：
+
+离线模型：
 
 - `embedding.int8.onnx`
 - `encoder_adaptor.int8.onnx`
 - `llm.int8.onnx`
 - `Qwen3-0.6B/`
 
+流式模型：
+
+- `encoder.int8.onnx`
+- `decoder.int8.onnx`
+- `tokens.txt`
+
 默认目录：
 
 - `%LOCALAPPDATA%/HsAsrDictation/models`
+- `%LOCALAPPDATA%/HsAsrDictation/models/offline`
+- `%LOCALAPPDATA%/HsAsrDictation/models/streaming`
 
 ## 3. 代码结构
 
@@ -106,6 +119,7 @@ src/HsAsrDictation/
   Logging/
   Models/
   Notifications/
+  Overlay/
   Services/
   Settings/
   Tray/
@@ -146,8 +160,8 @@ Idle -> Recording -> Finalizing -> Decoding -> Inserting -> Idle
 发布命令由 [scripts/publish-win-x64.ps1](/root/proj/hs-asr/scripts/publish-win-x64.ps1) 提供，目标是：
 
 - `RuntimeIdentifier=win-x64`
-- 自包含发布
-- 单文件 `.exe`
+- framework-dependent 发布
+- 输出可执行文件及依赖文件
 - 模型文件不打进单文件，放在外部目录
 
 建议产物目录：
@@ -163,11 +177,12 @@ Idle -> Recording -> Finalizing -> Decoding -> Inserting -> Idle
 - 首次无模型时可以下载模型
 - Notepad 中可以成功回写文本
 - `SendInput` 失败时可回退到剪贴板粘贴
-- 设置页可修改热键、输入设备和模型目录
+- 设置页可修改热键、输入设备、识别模式、模型目录和流式预览开关
+- 录音期间可以看到流式预览
 - 失败和性能信息可在日志目录看到
 
 ## 7. 当前实现限制
 
-- 当前开发环境是 Linux，仓库内代码已按 Windows 目标实现，但 `.exe` 产物需要安装 `.NET 8 SDK` 后再执行发布脚本。
 - 当前首版没有接入真正的 VAD 模型，只做了能量阈值静音裁剪。
+- 当前只提供录音期间的流式预览，不做持续边说边写回目标输入框。
 - 管理员权限窗口、远程桌面、企业 IM 等输入控件还需要在真实 Windows 机器上补充回归测试。
