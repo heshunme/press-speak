@@ -1,14 +1,14 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-`src/HsAsrDictation/` contains the Windows WPF application targeting `.NET 8`. Keep code grouped by feature area: `Audio/`, `Asr/`, `Hotkeys/`, `Insertion/`, `Models/`, `Settings/`, `Tray/`, and `Views/`. Core orchestration lives in `Services/DictationCoordinator.cs`. Tests live in `tests/HsAsrDictation.Tests/`; current unit coverage focuses on reusable logic such as `AudioSilenceTrimmer` and `ModelManifest`. Supporting docs are in [`design.md`](/root/proj/hs-asr/design.md) and [`implementation-status-report.md`](/root/proj/hs-asr/implementation-status-report.md). Release scripts are under `scripts/`.
+`src/HsAsrDictation/` contains the Windows WPF application targeting `.NET 8`. Keep code grouped by feature area: `Audio/`, `Asr/`, `Foreground/`, `Hotkeys/`, `Insertion/`, `Interop/`, `Logging/`, `Models/`, `Notifications/`, `Overlay/`, `Services/`, `Settings/`, `Tray/`, and `Views/`. Core orchestration lives in `Services/DictationCoordinator.cs`. Tests live in `tests/HsAsrDictation.Tests/`; current unit coverage focuses on reusable logic such as `AudioSilenceTrimmer`, `ModelManifest`, `ModelResidencyManager`, and `DictationOverlayController`. Supporting docs are in [`README.md`](/root/proj/hs-asr/README.md), [`design.md`](/root/proj/hs-asr/design.md), and [`implementation-status-report.md`](/root/proj/hs-asr/implementation-status-report.md). Release scripts are under `scripts/`.
 
 ## Build, Test, and Development Commands
 Use project-file commands because the repo does not include a `.sln`.
 
 - `dotnet build src/HsAsrDictation/HsAsrDictation.csproj`: build the WPF app.
 - `dotnet test tests/HsAsrDictation.Tests/HsAsrDictation.Tests.csproj`: run xUnit tests.
-- `bash scripts/publish-win-x64.sh Release`: create a self-contained `win-x64` publish in `artifacts/publish/win-x64/`.
+- `bash scripts/publish-win-x64.sh Release`: create a framework-dependent `win-x64` publish in `artifacts/publish/win-x64/`.
 - `pwsh ./scripts/publish-win-x64.ps1 -Configuration Release`: PowerShell equivalent for Windows.
 
 ## Coding Style & Naming Conventions
