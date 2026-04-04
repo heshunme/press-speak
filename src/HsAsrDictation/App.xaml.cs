@@ -23,8 +23,10 @@ public partial class App : System.Windows.Application
     private IHotkeyManager? _hotkeyManager;
     private IAudioCaptureService? _audioCaptureService;
     private IModelProvisioningService? _modelProvisioningService;
+    private IPunctuationModelProvisioningService? _punctuationModelProvisioningService;
     private IAsrEngine? _asrEngine;
     private IStreamingAsrEngine? _streamingAsrEngine;
+    private IPunctuationService? _punctuationService;
     private ForegroundContextService? _foregroundContextService;
     private ITextInsertionService? _textInsertionService;
     private DictationCoordinator? _coordinator;
@@ -45,8 +47,10 @@ public partial class App : System.Windows.Application
         _hotkeyManager = new LowLevelKeyboardHotkeyManager(_logger);
         _audioCaptureService = new WaveInAudioCaptureService(_logger);
         _modelProvisioningService = new ModelProvisioningService(_settingsService, _logger);
+        _punctuationModelProvisioningService = new PunctuationModelProvisioningService(_logger);
         _asrEngine = new SherpaFunAsrNanoEngine(_modelProvisioningService, _settingsService, _logger);
         _streamingAsrEngine = new SherpaStreamingParaformerEngine(_modelProvisioningService, _settingsService, _logger);
+        _punctuationService = new SherpaOfflinePunctuationService(_logger);
         _foregroundContextService = new ForegroundContextService(_logger);
         _textInsertionService = new TextInsertionService(_settingsService, _foregroundContextService, _logger);
         _statusOverlayService = new StatusOverlayService();
@@ -55,8 +59,10 @@ public partial class App : System.Windows.Application
             _settingsService,
             _audioCaptureService,
             _modelProvisioningService,
+            _punctuationModelProvisioningService,
             _asrEngine,
             _streamingAsrEngine,
+            _punctuationService,
             _foregroundContextService,
             _textInsertionService,
             _notificationService,
@@ -80,6 +86,7 @@ public partial class App : System.Windows.Application
         _hotkeyManager.Start(_settingsService.Current.Hotkey);
 
         _ = _coordinator.EnsureModelReadyAsync(downloadIfMissing: _settingsService.Current.AutoDownloadModel);
+        _ = _coordinator.EnsurePunctuationReadyAsync(downloadIfMissing: _settingsService.Current.AutoDownloadModel);
         _trayIconService.SetStatus("就绪");
         _dictationOverlayController.Update(new DictationStatus
         {
@@ -101,6 +108,7 @@ public partial class App : System.Windows.Application
         _audioCaptureService?.Dispose();
         _asrEngine?.Dispose();
         _streamingAsrEngine?.Dispose();
+        _punctuationService?.Dispose();
         _statusOverlayService?.Dispose();
         _trayIconService?.Dispose();
         _logger?.Dispose();
@@ -138,6 +146,9 @@ public partial class App : System.Windows.Application
                 _settingsService.Save(updatedSettings);
                 _hotkeyManager.UpdateGesture(updatedSettings.Hotkey);
                 _ = _coordinator.EnsureModelReadyAsync(downloadIfMissing: false, reinitialize: true);
+                _ = _coordinator.EnsurePunctuationReadyAsync(
+                    downloadIfMissing: updatedSettings.AutoDownloadModel,
+                    reinitialize: true);
             };
 
             _settingsWindow.Closed += (_, _) => _settingsWindow = null;

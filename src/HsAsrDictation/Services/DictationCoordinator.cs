@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text.RegularExpressions;
 using System.Threading.Channels;
 using HsAsrDictation.Asr;
@@ -16,8 +17,10 @@ public sealed class DictationCoordinator
     private readonly SettingsService _settingsService;
     private readonly IAudioCaptureService _audioCaptureService;
     private readonly IModelProvisioningService _modelProvisioningService;
+    private readonly IPunctuationModelProvisioningService _punctuationModelProvisioningService;
     private readonly IAsrEngine _asrEngine;
     private readonly IStreamingAsrEngine _streamingAsrEngine;
+    private readonly IPunctuationService _punctuationService;
     private readonly ModelResidencyManager _modelResidencyManager;
     private readonly ForegroundContextService _foregroundContextService;
     private readonly ITextInsertionService _textInsertionService;
@@ -38,8 +41,10 @@ public sealed class DictationCoordinator
         SettingsService settingsService,
         IAudioCaptureService audioCaptureService,
         IModelProvisioningService modelProvisioningService,
+        IPunctuationModelProvisioningService punctuationModelProvisioningService,
         IAsrEngine asrEngine,
         IStreamingAsrEngine streamingAsrEngine,
+        IPunctuationService punctuationService,
         ForegroundContextService foregroundContextService,
         ITextInsertionService textInsertionService,
         NotificationService notificationService,
@@ -48,8 +53,10 @@ public sealed class DictationCoordinator
         _settingsService = settingsService;
         _audioCaptureService = audioCaptureService;
         _modelProvisioningService = modelProvisioningService;
+        _punctuationModelProvisioningService = punctuationModelProvisioningService;
         _asrEngine = asrEngine;
         _streamingAsrEngine = streamingAsrEngine;
+        _punctuationService = punctuationService;
         _modelResidencyManager = new ModelResidencyManager(
             _modelProvisioningService,
             _asrEngine,
@@ -118,6 +125,62 @@ public sealed class DictationCoordinator
         {
             _logger.Error("重新下载模型失败。", ex);
             _notificationService.Error("HsAsrDictation", $"重新下载模型失败：{ex.Message}");
+        }
+    }
+
+    public async Task EnsurePunctuationReadyAsync(
+        bool downloadIfMissing,
+        bool reinitialize = false,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var settings = _settingsService.Current;
+            if (!settings.EnablePunctuation)
+            {
+                await Task.Run(() =>
+                {
+                    _punctuationService.Reload(new PunctuationRuntimeOptions
+                    {
+                        Enabled = false,
+                        ModelPath = string.Empty,
+                        NumThreads = 1
+                    });
+                }, ct);
+                return;
+            }
+
+            var ready = await _punctuationModelProvisioningService.EnsureReadyAsync(downloadIfMissing, ct);
+            var modelDirectory = ready.ModelDirectory ?? PunctuationModelManifest.ModelDirectory;
+            var modelPath = Path.Combine(modelDirectory, PunctuationModelManifest.RequiredFileName);
+
+            if (reinitialize || !_punctuationService.IsReady)
+            {
+                await Task.Run(() =>
+                {
+                    _punctuationService.Reload(new PunctuationRuntimeOptions
+                    {
+                        Enabled = settings.EnablePunctuation,
+                        ModelPath = modelPath,
+                        NumThreads = 1
+                    });
+                }, ct);
+            }
+
+            if (_punctuationService.IsReady)
+            {
+                _logger.Info($"标点模型已就绪：{modelDirectory}");
+                return;
+            }
+
+            var errorMessage = ready.ErrorMessage ?? "标点模型未就绪。";
+            _logger.Warn(errorMessage);
+            _notificationService.Warn("HsAsrDictation", $"{errorMessage} 听写将回退为原始文本。");
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("准备标点模型失败。", ex);
+            _notificationService.Error("HsAsrDictation", $"标点模型准备失败：{ex.Message}");
         }
     }
 
@@ -201,6 +264,7 @@ public sealed class DictationCoordinator
             }
 
             SetState(DictationState.Inserting);
+            finalText = _punctuationService.TryAddPunctuation(finalText);
             var insertionResult = await _textInsertionService.InsertAsync(
                 finalText,
                 _captureContext ?? _foregroundContextService.Capture());

@@ -19,6 +19,7 @@ public sealed class SettingsWindowViewModel
         StreamingModelRootPath = settings.StreamingModelRootPath;
         AllowClipboardFallback = settings.AllowClipboardFallback;
         AutoDownloadModel = settings.AutoDownloadModel;
+        EnablePunctuation = settings.EnablePunctuation;
         EnableStreamingPreview = settings.EnableStreamingPreview;
         SelectedRecognitionMode = RecognitionModes.First(x => x.Mode == settings.RecognitionMode);
         SelectedKey = settings.Hotkey.Key;
@@ -43,6 +44,8 @@ public sealed class SettingsWindowViewModel
     public bool AllowClipboardFallback { get; set; }
 
     public bool AutoDownloadModel { get; set; }
+
+    public bool EnablePunctuation { get; set; }
 
     public bool EnableStreamingPreview { get; set; }
 
@@ -92,6 +95,7 @@ public sealed class SettingsWindowViewModel
             StreamingModelRootPath = StreamingModelRootPath,
             AllowClipboardFallback = AllowClipboardFallback,
             AutoDownloadModel = AutoDownloadModel,
+            EnablePunctuation = EnablePunctuation,
             RecognitionMode = SelectedRecognitionMode.Mode,
             EnableStreamingPreview = EnableStreamingPreview,
             Hotkey = new HotkeyGesture

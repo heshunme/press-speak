@@ -20,6 +20,8 @@ public sealed class AppSettings
 
     public bool AutoDownloadModel { get; init; } = true;
 
+    public bool EnablePunctuation { get; init; } = false;
+
     public RecognitionMode RecognitionMode { get; init; } = RecognitionMode.Hybrid;
 
     public bool EnableStreamingPreview { get; init; } = true;
@@ -47,6 +49,7 @@ public sealed class AppSettings
             StreamingModelRootPath = streamingModelRootPath,
             AllowClipboardFallback = AllowClipboardFallback,
             AutoDownloadModel = AutoDownloadModel,
+            EnablePunctuation = EnablePunctuation,
             RecognitionMode = RecognitionMode,
             EnableStreamingPreview = EnableStreamingPreview
         };

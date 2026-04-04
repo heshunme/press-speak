@@ -103,6 +103,7 @@
                     Margin="0,0,0,12">
             <CheckBox Content="缺模型时自动下载" IsChecked="{Binding AutoDownloadModel}" />
             <CheckBox Content="SendInput 失败时允许剪贴板回退" IsChecked="{Binding AllowClipboardFallback}" />
+            <CheckBox Content="启用标点" IsChecked="{Binding EnablePunctuation}" />
             <CheckBox Content="启用实时流式预览" IsChecked="{Binding EnableStreamingPreview}" />
         </StackPanel>
 

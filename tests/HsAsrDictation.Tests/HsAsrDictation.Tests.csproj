@@ -8,6 +8,8 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
+    <PackageReference Include="org.k2fsa.sherpa.onnx" Version="1.12.34" />
+    <PackageReference Include="SharpCompress" Version="1.0.0" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
       <PrivateAssets>all</PrivateAssets>
@@ -21,12 +23,20 @@
     <Compile Include="..\..\src\HsAsrDictation\Models\IModelProvisioningService.cs" Link="Source\Models\IModelProvisioningService.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Models\ModelReadyResult.cs" Link="Source\Models\ModelReadyResult.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Audio\AudioSilenceTrimmer.cs" Link="Source\AudioSilenceTrimmer.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Logging\LocalLogService.cs" Link="Source\Logging\LocalLogService.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Services\AppPaths.cs" Link="Source\Services\AppPaths.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Models\ModelManifest.cs" Link="Source\ModelManifest.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Models\PunctuationModelManifest.cs" Link="Source\PunctuationModelManifest.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Models\IPunctuationModelProvisioningService.cs" Link="Source\IPunctuationModelProvisioningService.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Models\PunctuationModelProvisioningService.cs" Link="Source\PunctuationModelProvisioningService.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Asr\AsrResult.cs" Link="Source\Asr\AsrResult.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Asr\StreamingAsrResult.cs" Link="Source\Asr\StreamingAsrResult.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Asr\IAsrEngine.cs" Link="Source\Asr\IAsrEngine.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Asr\IStreamingAsrSession.cs" Link="Source\Asr\IStreamingAsrSession.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Asr\IStreamingAsrEngine.cs" Link="Source\Asr\IStreamingAsrEngine.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Asr\PunctuationRuntimeOptions.cs" Link="Source\Asr\PunctuationRuntimeOptions.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Asr\IPunctuationService.cs" Link="Source\Asr\IPunctuationService.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Asr\SherpaOfflinePunctuationService.cs" Link="Source\Asr\SherpaOfflinePunctuationService.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Overlay\IStatusOverlayService.cs" Link="Source\IStatusOverlayService.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Overlay\DictationOverlayController.cs" Link="Source\DictationOverlayController.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Settings\RecognitionMode.cs" Link="Source\Settings\RecognitionMode.cs" />
