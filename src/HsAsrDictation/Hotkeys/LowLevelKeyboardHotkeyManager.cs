@@ -13,6 +13,7 @@ public sealed class LowLevelKeyboardHotkeyManager : IHotkeyManager
     private readonly Win32.LowLevelKeyboardProc _hookCallback;
     private IntPtr _hookHandle = IntPtr.Zero;
     private bool _gestureActive;
+    private bool _isSuspended;
 
     public LowLevelKeyboardHotkeyManager(LocalLogService logger)
     {
@@ -54,9 +55,32 @@ public sealed class LowLevelKeyboardHotkeyManager : IHotkeyManager
     public void UpdateGesture(HotkeyGesture gesture)
     {
         CurrentGesture = gesture;
-        _pressedKeys.Clear();
-        _gestureActive = false;
+        ResetState();
         _logger.Info($"热键已更新：{gesture.ToDisplayText()}");
+    }
+
+    public void Suspend()
+    {
+        if (_isSuspended)
+        {
+            return;
+        }
+
+        _isSuspended = true;
+        ResetState(emitRelease: true);
+        _logger.Info("热键监听已暂停。");
+    }
+
+    public void Resume()
+    {
+        if (!_isSuspended)
+        {
+            return;
+        }
+
+        ResetState();
+        _isSuspended = false;
+        _logger.Info($"热键监听已恢复：{CurrentGesture.ToDisplayText()}");
     }
 
     public void Dispose()
@@ -72,6 +96,11 @@ public sealed class LowLevelKeyboardHotkeyManager : IHotkeyManager
     {
         if (nCode >= 0)
         {
+            if (_isSuspended)
+            {
+                return Win32.CallNextHookEx(_hookHandle, nCode, wParam, lParam);
+            }
+
             var hookStruct = Marshal.PtrToStructure<Win32.KBDLLHOOKSTRUCT>(lParam);
             var message = wParam.ToInt32();
 
@@ -98,6 +127,18 @@ public sealed class LowLevelKeyboardHotkeyManager : IHotkeyManager
         }
 
         return Win32.CallNextHookEx(_hookHandle, nCode, wParam, lParam);
+    }
+
+    private void ResetState(bool emitRelease = false)
+    {
+        var wasActive = _gestureActive;
+        _pressedKeys.Clear();
+        _gestureActive = false;
+
+        if (emitRelease && wasActive)
+        {
+            Released?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     private bool IsGestureActive()

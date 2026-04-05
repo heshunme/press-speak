@@ -11,4 +11,8 @@ public interface IHotkeyManager : IDisposable
     void Start(HotkeyGesture gesture);
 
     void UpdateGesture(HotkeyGesture gesture);
+
+    void Suspend();
+
+    void Resume();
 }

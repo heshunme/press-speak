@@ -8,6 +8,17 @@ public sealed class HotkeyGesture
 
     public Key Key { get; init; } = Key.Space;
 
+    public HotkeyGesture CreateCopy() => new()
+    {
+        Modifiers = Modifiers,
+        Key = Key
+    };
+
+    public bool IsEquivalentTo(HotkeyGesture? other) =>
+        other is not null &&
+        Modifiers == other.Modifiers &&
+        Key == other.Key;
+
     public string ToDisplayText()
     {
         var parts = new List<string>();

@@ -5,7 +5,9 @@
         Width="520"
         Height="520"
         ResizeMode="NoResize"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterScreen"
+        PreviewKeyDown="Window_PreviewKeyDown"
+        PreviewKeyUp="Window_PreviewKeyUp">
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -39,66 +41,64 @@
         <TextBlock Grid.Row="1"
                    Grid.Column="0"
                    Margin="0,0,12,12"
-                   VerticalAlignment="Center"
-                   Text="热键主键" />
-        <ComboBox Grid.Row="1"
-                  Grid.Column="1"
-                  Margin="0,0,0,12"
-                  ItemsSource="{Binding AvailableKeys}"
-                  SelectedItem="{Binding SelectedKey}" />
+                   VerticalAlignment="Top"
+                   Text="唤起热键" />
+        <StackPanel Grid.Row="1"
+                    Grid.Column="1"
+                    Margin="0,0,0,12"
+                    Orientation="Vertical">
+            <TextBox x:Name="HotkeyCaptureTextBox"
+                     Margin="0,0,0,8"
+                     IsReadOnly="True"
+                     Focusable="True"
+                     Text="{Binding HotkeyDisplayText}" />
+            <Button Width="96"
+                    Margin="0,0,0,8"
+                    HorizontalAlignment="Left"
+                    Click="ToggleHotkeyCapture_Click"
+                    Content="{Binding HotkeyCaptureButtonText}" />
+            <TextBlock Foreground="#FF666666"
+                       Text="{Binding HotkeyCapturePrompt}"
+                       TextWrapping="Wrap" />
+        </StackPanel>
 
         <TextBlock Grid.Row="2"
                    Grid.Column="0"
                    Margin="0,0,12,12"
-                   VerticalAlignment="Top"
-                   Text="热键修饰键" />
-        <StackPanel Grid.Row="2"
-                    Grid.Column="1"
-                    Margin="0,0,0,12"
-                    Orientation="Horizontal">
-            <CheckBox Margin="0,0,12,0" Content="Ctrl" IsChecked="{Binding UseCtrl}" />
-            <CheckBox Margin="0,0,12,0" Content="Alt" IsChecked="{Binding UseAlt}" />
-            <CheckBox Margin="0,0,12,0" Content="Shift" IsChecked="{Binding UseShift}" />
-            <CheckBox Content="Win" IsChecked="{Binding UseWindows}" />
-        </StackPanel>
+                   VerticalAlignment="Center"
+                   Text="离线模型目录" />
+        <TextBox Grid.Row="2"
+                 Grid.Column="1"
+                 Margin="0,0,0,12"
+                 Text="{Binding OfflineModelRootPath}" />
 
         <TextBlock Grid.Row="3"
                    Grid.Column="0"
                    Margin="0,0,12,12"
                    VerticalAlignment="Center"
-                   Text="离线模型目录" />
+                   Text="流式模型目录" />
         <TextBox Grid.Row="3"
                  Grid.Column="1"
                  Margin="0,0,0,12"
-                 Text="{Binding OfflineModelRootPath}" />
+                 Text="{Binding StreamingModelRootPath}" />
 
         <TextBlock Grid.Row="4"
                    Grid.Column="0"
                    Margin="0,0,12,12"
                    VerticalAlignment="Center"
-                   Text="流式模型目录" />
-        <TextBox Grid.Row="4"
-                 Grid.Column="1"
-                 Margin="0,0,0,12"
-                 Text="{Binding StreamingModelRootPath}" />
-
-        <TextBlock Grid.Row="5"
-                   Grid.Column="0"
-                   Margin="0,0,12,12"
-                   VerticalAlignment="Center"
                    Text="识别模式" />
-        <ComboBox Grid.Row="5"
+        <ComboBox Grid.Row="4"
                   Grid.Column="1"
                   Margin="0,0,0,12"
                   ItemsSource="{Binding RecognitionModes}"
                   SelectedItem="{Binding SelectedRecognitionMode}" />
 
-        <TextBlock Grid.Row="6"
+        <TextBlock Grid.Row="5"
                    Grid.Column="0"
                    Margin="0,0,12,12"
                    VerticalAlignment="Top"
                    Text="选项" />
-        <StackPanel Grid.Row="6"
+        <StackPanel Grid.Row="5"
                     Grid.Column="1"
                     Margin="0,0,0,12">
             <CheckBox Content="缺模型时自动下载" IsChecked="{Binding AutoDownloadModel}" />
@@ -107,7 +107,7 @@
             <CheckBox Content="启用实时流式预览" IsChecked="{Binding EnableStreamingPreview}" />
         </StackPanel>
 
-        <Border Grid.Row="7"
+        <Border Grid.Row="6"
                 Grid.Column="0"
                 Grid.ColumnSpan="2"
                 Margin="0,8,0,16"

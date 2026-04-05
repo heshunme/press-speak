@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using HsAsrDictation.Audio;
 using HsAsrDictation.Hotkeys;
@@ -6,13 +8,20 @@ using HsAsrDictation.Settings;
 
 namespace HsAsrDictation.Views;
 
-public sealed class SettingsWindowViewModel
+public sealed class SettingsWindowViewModel : INotifyPropertyChanged
 {
+    private const string IdleHotkeyCapturePrompt = "点击“开始录入”，然后按下要作为热键的组合键。";
+    private const string ActiveHotkeyCapturePrompt = "请按下组合键，Esc 取消。";
+
+    private HotkeyGesture _candidateHotkey;
+    private string _hotkeyCapturePrompt = IdleHotkeyCapturePrompt;
+    private bool _isCapturingHotkey;
+
     public SettingsWindowViewModel(AppSettings settings, IReadOnlyList<AudioDeviceInfo> devices)
     {
         Devices = new ObservableCollection<AudioDeviceInfo>(devices);
-        AvailableKeys = new ObservableCollection<Key>(BuildAvailableKeys());
         RecognitionModes = new ObservableCollection<RecognitionModeOption>(BuildRecognitionModes());
+        _candidateHotkey = settings.Hotkey.CreateCopy();
 
         SelectedDeviceName = settings.PreferredInputDeviceName;
         OfflineModelRootPath = settings.OfflineModelRootPath;
@@ -22,16 +31,11 @@ public sealed class SettingsWindowViewModel
         EnablePunctuation = settings.EnablePunctuation;
         EnableStreamingPreview = settings.EnableStreamingPreview;
         SelectedRecognitionMode = RecognitionModes.First(x => x.Mode == settings.RecognitionMode);
-        SelectedKey = settings.Hotkey.Key;
-        UseCtrl = settings.Hotkey.Modifiers.HasFlag(HotkeyModifiers.Control);
-        UseAlt = settings.Hotkey.Modifiers.HasFlag(HotkeyModifiers.Alt);
-        UseShift = settings.Hotkey.Modifiers.HasFlag(HotkeyModifiers.Shift);
-        UseWindows = settings.Hotkey.Modifiers.HasFlag(HotkeyModifiers.Windows);
     }
 
-    public ObservableCollection<AudioDeviceInfo> Devices { get; }
+    public event PropertyChangedEventHandler? PropertyChanged;
 
-    public ObservableCollection<Key> AvailableKeys { get; }
+    public ObservableCollection<AudioDeviceInfo> Devices { get; }
 
     public ObservableCollection<RecognitionModeOption> RecognitionModes { get; }
 
@@ -51,40 +55,46 @@ public sealed class SettingsWindowViewModel
 
     public RecognitionModeOption SelectedRecognitionMode { get; set; } = null!;
 
-    public bool UseCtrl { get; set; }
+    public HotkeyGesture CandidateHotkey
+    {
+        get => _candidateHotkey;
+        private set
+        {
+            if (_candidateHotkey.IsEquivalentTo(value))
+            {
+                return;
+            }
 
-    public bool UseAlt { get; set; }
+            _candidateHotkey = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HotkeyDisplayText));
+        }
+    }
 
-    public bool UseShift { get; set; }
+    public string HotkeyDisplayText => CandidateHotkey.ToDisplayText();
 
-    public bool UseWindows { get; set; }
+    public string HotkeyCapturePrompt
+    {
+        get => _hotkeyCapturePrompt;
+        private set => SetProperty(ref _hotkeyCapturePrompt, value);
+    }
 
-    public Key SelectedKey { get; set; }
+    public bool IsCapturingHotkey
+    {
+        get => _isCapturingHotkey;
+        private set
+        {
+            if (SetProperty(ref _isCapturingHotkey, value))
+            {
+                OnPropertyChanged(nameof(HotkeyCaptureButtonText));
+            }
+        }
+    }
+
+    public string HotkeyCaptureButtonText => IsCapturingHotkey ? "取消录入" : "开始录入";
 
     public AppSettings ToSettings()
     {
-        var modifiers = HotkeyModifiers.None;
-
-        if (UseCtrl)
-        {
-            modifiers |= HotkeyModifiers.Control;
-        }
-
-        if (UseAlt)
-        {
-            modifiers |= HotkeyModifiers.Alt;
-        }
-
-        if (UseShift)
-        {
-            modifiers |= HotkeyModifiers.Shift;
-        }
-
-        if (UseWindows)
-        {
-            modifiers |= HotkeyModifiers.Windows;
-        }
-
         return new AppSettings
         {
             PreferredInputDeviceName = string.IsNullOrWhiteSpace(SelectedDeviceName)
@@ -98,12 +108,40 @@ public sealed class SettingsWindowViewModel
             EnablePunctuation = EnablePunctuation,
             RecognitionMode = SelectedRecognitionMode.Mode,
             EnableStreamingPreview = EnableStreamingPreview,
-            Hotkey = new HotkeyGesture
-            {
-                Modifiers = modifiers,
-                Key = SelectedKey
-            }
+            Hotkey = CandidateHotkey.CreateCopy()
         };
+    }
+
+    public void BeginHotkeyCapture()
+    {
+        IsCapturingHotkey = true;
+        HotkeyCapturePrompt = ActiveHotkeyCapturePrompt;
+    }
+
+    public void CancelHotkeyCapture(HotkeyGesture restoredHotkey, bool keepPendingHotkey)
+    {
+        CandidateHotkey = restoredHotkey.CreateCopy();
+        IsCapturingHotkey = false;
+        HotkeyCapturePrompt = keepPendingHotkey
+            ? $"已取消本次录入，保留候选热键：{HotkeyDisplayText}"
+            : $"已取消热键录入，当前热键：{HotkeyDisplayText}";
+    }
+
+    public void SetCapturedHotkey(HotkeyGesture hotkey)
+    {
+        CandidateHotkey = hotkey.CreateCopy();
+        IsCapturingHotkey = false;
+        HotkeyCapturePrompt = $"已记录新热键：{HotkeyDisplayText}";
+    }
+
+    public void ShowPressedModifiers(HotkeyModifiers modifiers)
+    {
+        HotkeyCapturePrompt = $"已按下 {HotkeyCaptureEvaluator.FormatModifierText(modifiers)}，继续按主键。";
+    }
+
+    public void ShowCaptureGuidance(string prompt)
+    {
+        HotkeyCapturePrompt = prompt;
     }
 
     private static IEnumerable<RecognitionModeOption> BuildRecognitionModes()
@@ -131,38 +169,23 @@ public sealed class SettingsWindowViewModel
         return Services.AppPaths.DefaultModelRootPath;
     }
 
-    private static IEnumerable<Key> BuildAvailableKeys()
-    {
-        yield return Key.Space;
-        yield return Key.Oem3;
-
-        foreach (var key in Enum.GetValues<Key>())
-        {
-            if (key is >= Key.A and <= Key.Z)
-            {
-                yield return key;
-            }
-        }
-
-        foreach (var key in Enum.GetValues<Key>())
-        {
-            if (key is >= Key.D0 and <= Key.D9)
-            {
-                yield return key;
-            }
-        }
-
-        foreach (var key in Enum.GetValues<Key>())
-        {
-            if (key is >= Key.F1 and <= Key.F12)
-            {
-                yield return key;
-            }
-        }
-    }
-
     public sealed record RecognitionModeOption(RecognitionMode Mode, string DisplayName)
     {
         public override string ToString() => DisplayName;
     }
+
+    private bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value))
+        {
+            return false;
+        }
+
+        field = value;
+        OnPropertyChanged(propertyName);
+        return true;
+    }
+
+    private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }

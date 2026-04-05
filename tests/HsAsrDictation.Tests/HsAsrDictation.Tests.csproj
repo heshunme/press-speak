@@ -37,6 +37,8 @@
     <Compile Include="..\..\src\HsAsrDictation\Asr\PunctuationRuntimeOptions.cs" Link="Source\Asr\PunctuationRuntimeOptions.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Asr\IPunctuationService.cs" Link="Source\Asr\IPunctuationService.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Asr\SherpaOfflinePunctuationService.cs" Link="Source\Asr\SherpaOfflinePunctuationService.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyModifiers.cs" Link="Source\Hotkeys\HotkeyModifiers.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyCaptureEvaluator.cs" Link="Source\Hotkeys\HotkeyCaptureEvaluator.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Overlay\IStatusOverlayService.cs" Link="Source\IStatusOverlayService.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Overlay\DictationOverlayController.cs" Link="Source\DictationOverlayController.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Settings\RecognitionMode.cs" Link="Source\Settings\RecognitionMode.cs" />

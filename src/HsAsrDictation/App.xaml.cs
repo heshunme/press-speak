@@ -139,7 +139,8 @@ public partial class App : System.Windows.Application
 
             _settingsWindow = new SettingsWindow(
                 _settingsService.Current,
-                _audioCaptureService.GetInputDevices());
+                _audioCaptureService.GetInputDevices(),
+                _hotkeyManager);
 
             _settingsWindow.SettingsSaved += (_, updatedSettings) =>
             {
