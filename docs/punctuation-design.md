@@ -31,7 +31,7 @@
 
 这意味着标点能力最自然的落点是：
 
-`识别完成 -> 标点后处理 -> 文本写回`
+`识别完成 -> 标点后处理 -> 通用后处理 -> 文本写回`
 
 而不是：
 
@@ -103,14 +103,15 @@ https://github.com/k2-fsa/sherpa-onnx/releases/download/punctuation-models/sherp
 - `model.int8.onnx` 是唯一硬性必需文件。
 - 不要求用户保留解压包中的其他文件。
 - 路径和线程数都作为内部默认值，不暴露到设置页。
+- 当前实现会把下载包先解压到临时目录，再把最终的 `model.int8.onnx` 复制到固定的模型目录里。
 
-如果后续要接入下载逻辑，建议仍然复用现有“下载 -> 解压 -> 校验 -> 重新加载”的思路，但校验条件只看最终的 `model.int8.onnx` 是否存在。
+当前实现复用现有“下载 -> 解压 -> 校验 -> 重新加载”的思路，校验条件只看最终的 `model.int8.onnx` 是否存在。
 
 ### 4.3 标点服务
 
 标点能力建议做成一个独立服务，避免和 ASR 引擎耦合。
 
-建议接口形态：
+当前实现的接口形态：
 
 ```csharp
 public interface IPunctuationService : IDisposable
@@ -142,7 +143,7 @@ public sealed class PunctuationRuntimeOptions
 3. 任何异常都返回原文。
 4. 重新加载时先释放旧实例，再初始化新实例。
 
-如果后续实现时使用 sherpa-onnx 的官方 C# API，底层调用应走离线标点模型对应的 `OfflinePunctuationConfig` / `OfflinePunctuation` / `AddPunct()` 这一条路。
+当前实现使用 sherpa-onnx 的官方 C# API，底层调用走离线标点模型对应的 `OfflinePunctuationConfig` / `OfflinePunctuation` / `AddPunct()` 这一条路，并固定为 `cpu` + `NumThreads=1`。
 
 ### 4.4 启动和设置更新
 
@@ -162,14 +163,14 @@ public sealed class PunctuationRuntimeOptions
 
 ### 4.5 最终文本写回前接入
 
-标点只应该插在最终文本写回前。
+标点只应该插在最终文本写回前，随后再进入通用后处理规则。
 
 当前协调器已经负责“录音结束 -> 识别 -> 插入”，所以接入点应该在 `DictationCoordinator` 的最终结果处理处。
 
 推荐流程：
 
 ```text
-Recording -> Finalizing -> Decoding -> Punctuation -> Inserting -> Idle
+Recording -> Finalizing -> Decoding -> Punctuation -> PostProcessing -> Inserting -> Idle
 ```
 
 逻辑上等价于：
@@ -177,6 +178,7 @@ Recording -> Finalizing -> Decoding -> Punctuation -> Inserting -> Idle
 ```csharp
 var finalText = recognitionResult.Text;
 finalText = _punctuationService.TryAddPunctuation(finalText);
+finalText = _postProcessingService.TryProcess(finalText, context);
 await _textInsertionService.InsertAsync(finalText, context);
 ```
 
@@ -185,6 +187,7 @@ await _textInsertionService.InsertAsync(finalText, context);
 - `RecognitionMode.NonStreaming`、`RecognitionMode.Hybrid`、`RecognitionMode.StreamingOnly` 都应该共用同一条“最终文本 -> 标点 -> 写回”路径。
 - 流式预览仍然显示原始预览文本，不做标点补全。
 - 如果标点结果为空、异常或未就绪，写回原始识别文本。
+- 通用后处理规则继续只作用于最终写回文本，不影响录音期间的流式预览。
 
 ## 5. 失败、日志与回退
 
@@ -258,12 +261,6 @@ await _textInsertionService.InsertAsync(finalText, context);
 
 - 和当前仓库架构一致。
 - 对设置页改动最小。
+- 和通用后处理规则链路可以自然串接。
 - 对 ASR 模型和流式预览没有侵入。
 - 失败可回退，风险可控。
-
-如果后续要真正进入代码实现，下一步就按这个顺序推进：
-
-1. 在 `AppSettings` 和设置页里加入 `EnablePunctuation`。
-2. 补一个独立的标点服务。
-3. 在 `DictationCoordinator` 的最终结果处接入标点后处理。
-4. 补模型校验和日志。

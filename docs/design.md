@@ -19,11 +19,12 @@
 - 本地识别（离线 + 可选流式）
 - 录音期间的流式预览
 - 最终文本的离线标点后处理（可开关）
+- 最终文本的通用后处理规则（可开关）
 - `SendInput` 注入
 - 剪贴板回退
 - 最小设置窗
 - 本地日志
-- 识别模式、输入设备、点击录入的新热键、模型目录、自动下载、剪贴板回退、标点和流式预览等本地配置
+- 识别模式、输入设备、点击录入的新热键、模型目录、自动下载、剪贴板回退、标点、后处理规则和流式预览等本地配置
 
 不包含：
 
@@ -149,6 +150,7 @@ scripts/
 - `SherpaStreamingParaformerEngine`：封装流式 sherpa-onnx 推理
 - `PunctuationModelProvisioningService`：标点模型下载、解压、校验
 - `SherpaOfflinePunctuationService`：离线标点后处理
+- `PostProcessingRuleRepository` / `PostProcessingService`：通用后处理规则加载与执行
 - `TextInsertionService`：注入和剪贴板回退
 - `TrayIconService`：托盘菜单和气泡通知
 - `SettingsService`：本地设置读写
@@ -196,9 +198,10 @@ Idle -> Recording -> Finalizing -> Decoding -> Inserting -> Idle
 - 首次无模型时可以下载模型
 - Notepad 中可以成功回写文本
 - `SendInput` 失败时可回退到剪贴板粘贴
-- 设置页可点击录入新组合键，并修改输入设备、识别模式、模型目录、自动下载、剪贴板回退、标点和流式预览开关
+- 设置页可点击录入新组合键，并修改输入设备、识别模式、模型目录、自动下载、剪贴板回退、标点、后处理规则和流式预览开关
 - 录音期间可以看到流式预览
 - 启用标点时，最终文本会先做一次离线标点后处理
+- 启用后处理规则时，最终文本会继续做一次通用后处理
 - 失败和性能信息可在日志目录看到
 
 ## 7. 当前实现限制

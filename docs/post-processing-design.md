@@ -34,9 +34,9 @@ ASR 最终文本
 ```csharp id="02"
 var finalText = recognizedText;
 
-if (settings.EnableOfflinePunctuation)
+if (settings.EnablePunctuation)
 {
-    finalText = punctuationService.TryProcess(finalText);
+    finalText = punctuationService.TryAddPunctuation(finalText);
 }
 
 if (settings.EnablePostProcessingRules)
@@ -44,7 +44,7 @@ if (settings.EnablePostProcessingRules)
     finalText = postProcessingService.TryProcess(finalText, context);
 }
 
-textInsertionService.Insert(finalText);
+await textInsertionService.InsertAsync(finalText, context);
 ```
 
 `context` 第一版先保留最小结构，后续便于扩展场景化：
@@ -78,13 +78,14 @@ src/HsAsrDictation/
     Models/
       PostProcessingConfig.cs
       RuleDefinition.cs
+    Resources/
+      PostProcessing/
+        default-rules.json
     Rules/
       ExactReplaceRule.cs
       RegexReplaceRule.cs
       EnglishAcronymJoinRule.cs
       TrimWhitespaceRule.cs
-      CollapseRepeatedWhitespaceRule.cs
-      NormalizeFullwidthSpaceRule.cs
     Validation/
       RuleValidator.cs
       RegexSafetyValidator.cs
@@ -139,7 +140,7 @@ src/HsAsrDictation/
 
 ## 5. 默认内置规则
 
-第一期建议只内置 4 条规则。
+当前实现内置 4 条规则，默认启用，来自嵌入资源 `Resources/PostProcessing/default-rules.json`。
 
 ### 5.1 trim-whitespace
 
@@ -150,11 +151,13 @@ src/HsAsrDictation/
 
 * 类型：exact_replace
 * 作用：全角空格替换为半角空格
+* 说明：当前实现里它是一个内置配置规则，不单独建 `NormalizeFullwidthSpaceRule.cs`
 
 ### 5.3 collapse-multiple-spaces
 
 * 类型：regex_replace
 * 作用：连续多个半角空格压成一个
+* 说明：当前实现里它是一个内置配置规则，不单独建 `CollapseRepeatedWhitespaceRule.cs`
 
 参数：
 
@@ -174,17 +177,19 @@ src/HsAsrDictation/
 
 ## 6. 规则执行顺序
 
-第一期固定如下顺序：
+当前实现按照 `Order` 升序执行，数值越小越早执行。
 
-1. `trim-whitespace`
-2. `normalize-fullwidth-space`
-3. `collapse-multiple-spaces`
-4. `exact_replace` 系列
-5. `built_in_transform` 系列
-6. `regex_replace` 系列
-7. 最后再 trim 一次
+默认规则的 `Order` 依次为：
 
-规则使用 `Order` 排序，数值越小越早执行。
+1. `builtin.trim-whitespace` -> `100`
+2. `builtin.normalize-fullwidth-space` -> `200`
+3. `builtin.collapse-multiple-spaces` -> `300`
+4. `builtin.english-acronym-join` -> `400`
+
+说明：
+
+* 不再做“按类型分组再执行”的二次排序。
+* 不再额外做一次末尾 trim。
 
 ---
 
@@ -225,7 +230,7 @@ Resources/PostProcessing/default-rules.json
 放本地目录：
 
 ```text id="08"
-%LOCALAPPDATA%/HsAsrDictation/settings/postprocessing-rules.user.json
+%LOCALAPPDATA%/HsAsrDictation/postprocessing-rules.user.json
 ```
 
 ---
@@ -234,9 +239,9 @@ Resources/PostProcessing/default-rules.json
 
 启动时执行：
 
-1. 读取 `default-rules.json`
+1. 读取嵌入资源 `default-rules.json`
 2. 读取 `postprocessing-rules.user.json`
-3. 按 `RuleId` 合并
+3. 按规则 `Id` 合并
 4. 生成最终运行规则集
 
 规则 ID 必须固定，例如：
@@ -308,54 +313,28 @@ public interface IPostProcessingRuleRepository
 
 参考实现：
 
+实际代码里还包含 `TestProcess(...)` 和内部的 `ExecutePipeline(...)`，这里仅保留关键骨架，说明它依赖仓储加载配置并通过工厂实例化规则。
+
 ```csharp id="11"
 public sealed class PostProcessingService : IPostProcessingService
 {
-    private readonly IEnumerable<IPostProcessingRule> _rules;
+    private readonly IPostProcessingRuleFactory _factory;
     private readonly ILogger _logger;
+    private readonly IPostProcessingRuleRepository _repository;
 
-    public PostProcessingService(IEnumerable<IPostProcessingRule> rules, ILogger logger)
+    public PostProcessingService(
+        IPostProcessingRuleRepository repository,
+        IPostProcessingRuleFactory factory,
+        ILogger logger)
     {
-        _rules = rules.OrderBy(r => r.Order).ToArray();
+        _repository = repository;
+        _factory = factory;
         _logger = logger;
     }
 
     public string TryProcess(string input, RuleExecutionContext context)
     {
-        if (string.IsNullOrEmpty(input))
-            return input;
-
-        var current = input;
-
-        try
-        {
-            foreach (var rule in _rules)
-            {
-                if (!rule.IsEnabled || !rule.CanApply(context))
-                    continue;
-
-                try
-                {
-                    var result = rule.Apply(current, context);
-                    if (result.Changed)
-                    {
-                        current = result.Output;
-                        _logger.LogInformation("Post-processing rule applied: {RuleId}", rule.Id);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Post-processing rule failed: {RuleId}", rule.Id);
-                }
-            }
-
-            return current;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Post-processing pipeline failed. Fallback to original text.");
-            return input;
-        }
+        return ExecutePipeline(input, context).Output;
     }
 }
 ```
@@ -743,7 +722,7 @@ public static class RegexSafetyValidator
 
 ### 17.3 恢复默认
 
-* 删除指定 `RuleId` 的 override
+* 删除指定规则 `Id` 的 override
 * 下次加载时自动回到默认值
 
 ---
@@ -969,4 +948,3 @@ public sealed class PostProcessingRulesViewModel : ObservableObject
 * 规则失败不影响主流程
 * 配置本地持久化
 * 单元测试覆盖 happy path 和异常路径
-
