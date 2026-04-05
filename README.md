@@ -1,6 +1,10 @@
-# HsAsrDictation
+# Press Speak
 
-`HsAsrDictation` 是一个面向 `Windows 11 x64` 的本地听写应用。它常驻托盘，按住全局热键说话，松开后把识别结果直接写回当前输入位置。整个主链路基于本地 CPU 和 `sherpa-onnx`，支持离线识别、可选流式预览、离线标点和通用后处理规则。
+`Press Speak` 是一个面向 `Windows 11 x64` 的本地听写应用。它常驻托盘，按住全局热键说话，松开后把识别结果直接写回当前输入位置。整个主链路基于本地 CPU 和 `sherpa-onnx`，支持离线识别、可选流式预览、离线标点和通用后处理规则。
+
+说明：
+
+- 代码仓库内部仍保留部分 `HsAsrDictation` 命名空间和目录名，README 中的产品名以 `Press Speak` 为准。
 
 ## 项目亮点
 
@@ -90,6 +94,10 @@ pwsh ./scripts/publish-win-x64.ps1 -Configuration Release
 - 流式模型目录：`%LOCALAPPDATA%\HsAsrDictation\models\streaming`
 - 标点模型目录：`%LOCALAPPDATA%\HsAsrDictation\models\punctuation`
 
+说明：
+
+- 这些路径反映的是当前实现的本地数据布局，暂时仍沿用 `HsAsrDictation` 目录名。
+
 默认热键是 `Alt + Oem3`。你可以在设置页点击“开始录入”，然后按下新的组合键保存。
 
 设置页支持：
@@ -163,4 +171,4 @@ docs/                      设计与实现说明
 
 ## 许可证
 
-当前仓库未单独声明许可证；如果需要对外分发，建议先补充 `LICENSE` 文件。
+本项目采用 Apache License 2.0，详见 [`LICENSE`](LICENSE)。

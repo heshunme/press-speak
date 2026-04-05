@@ -1,4 +1,4 @@
-# HsAsrDictation 当前实现情况报告
+# Press Speak 当前实现情况报告
 
 - 报告日期：2026-04-05
 - 设计依据：[`design.md`](design.md)

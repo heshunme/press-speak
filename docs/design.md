@@ -1,8 +1,8 @@
-# HsAsrDictation 实施设计
+# Press Speak 实施设计
 
 ## 1. 目标与交付
 
-本项目交付一个 `Windows 11 x64` 常驻听写程序 `HsAsrDictation.exe`，行为固定为：
+本项目交付一个 `Windows 11 x64` 常驻听写程序 `Press Speak`，行为固定为：
 
 1. 全局热键按下开始录音。
 2. 热键释放结束录音。
