@@ -153,6 +153,8 @@ artifacts/publish/win-x64/
 
 - [`docs/design.md`](docs/design.md)
 - [`docs/implementation-status-report.md`](docs/implementation-status-report.md)
+- [`docs/post-processing-design.md`](docs/post-processing-design.md)
+- [`docs/punctuation-design.md`](docs/punctuation-design.md)
 
 ## 已知限制
 
