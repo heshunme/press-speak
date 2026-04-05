@@ -18,10 +18,12 @@
 - 模型自动下载与校验
 - 本地识别（离线 + 可选流式）
 - 录音期间的流式预览
+- 最终文本的离线标点后处理（可开关）
 - `SendInput` 注入
 - 剪贴板回退
 - 最小设置窗
 - 本地日志
+- 识别模式、输入设备、热键、模型目录、自动下载、剪贴板回退、标点和流式预览等本地配置
 
 不包含：
 
@@ -39,6 +41,7 @@
 - 音频：`NAudio`
 - ASR：`org.k2fsa.sherpa.onnx`
 - 模型解压：`SharpCompress`
+- 标点后处理：`sherpa-onnx` 离线标点组件
 
 ### 2.2 热键实现
 
@@ -64,6 +67,7 @@
 - 当前实现先用 `WaveInEvent` 降低首版集成风险。
 - 如果后续设备兼容性不足，再评估切换到 `WasapiCapture`。
 - 录音期间会产出流式识别预览，但最终写回仍发生在结束录音之后。
+- 当前首版没有接入真正的 VAD 模型，只做了能量阈值静音裁剪。
 
 ### 2.4 文本回写
 
@@ -77,6 +81,7 @@
 - 识别到密码框时拒绝注入。
 - 高权限窗口导致注入失败时，最多回退到剪贴板粘贴。
 - 不抢主窗口焦点；回写前尝试恢复原前台窗口。
+- 标点只作用于最终写回文本，不影响录音期间的流式预览。
 
 ### 2.5 模型供应
 
@@ -84,6 +89,7 @@
 
 - 离线模型：`https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-funasr-nano-int8-2025-12-30.tar.bz2`
 - 流式模型：`https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-paraformer-bilingual-zh-en.tar.bz2`
+- 标点模型：`https://github.com/k2-fsa/sherpa-onnx/releases/download/punctuation-models/sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12-int8.tar.bz2`
 
 校验条件：
 
@@ -100,11 +106,16 @@
 - `decoder.int8.onnx`
 - `tokens.txt`
 
+标点模型：
+
+- `model.int8.onnx`
+
 默认目录：
 
 - `%LOCALAPPDATA%/HsAsrDictation/models`
 - `%LOCALAPPDATA%/HsAsrDictation/models/offline`
 - `%LOCALAPPDATA%/HsAsrDictation/models/streaming`
+- `%LOCALAPPDATA%/HsAsrDictation/models/punctuation`
 
 ## 3. 代码结构
 
@@ -135,6 +146,9 @@ scripts/
 - `WaveInAudioCaptureService`：录音与样本缓存
 - `ModelProvisioningService`：模型下载、解压、校验
 - `SherpaFunAsrNanoEngine`：封装 sherpa-onnx 推理
+- `SherpaStreamingParaformerEngine`：封装流式 sherpa-onnx 推理
+- `PunctuationModelProvisioningService`：标点模型下载、解压、校验
+- `SherpaOfflinePunctuationService`：离线标点后处理
 - `TextInsertionService`：注入和剪贴板回退
 - `TrayIconService`：托盘菜单和气泡通知
 - `SettingsService`：本地设置读写
@@ -146,6 +160,11 @@ scripts/
 ```text
 Idle -> Recording -> Finalizing -> Decoding -> Inserting -> Idle
 ```
+
+说明：
+
+- 标点后处理发生在写回前，不单独占用状态。
+- 录音期间的流式预览只用于提示当前识别进展，不会持续改写目标输入框。
 
 异常处理：
 
@@ -177,12 +196,14 @@ Idle -> Recording -> Finalizing -> Decoding -> Inserting -> Idle
 - 首次无模型时可以下载模型
 - Notepad 中可以成功回写文本
 - `SendInput` 失败时可回退到剪贴板粘贴
-- 设置页可修改热键、输入设备、识别模式、模型目录和流式预览开关
+- 设置页可修改热键、输入设备、识别模式、模型目录、自动下载、剪贴板回退、标点和流式预览开关
 - 录音期间可以看到流式预览
+- 启用标点时，最终文本会先做一次离线标点后处理
 - 失败和性能信息可在日志目录看到
 
 ## 7. 当前实现限制
 
 - 当前首版没有接入真正的 VAD 模型，只做了能量阈值静音裁剪。
 - 当前只提供录音期间的流式预览，不做持续边说边写回目标输入框。
+- 标点处理只面向最终写回文本，不会实时修改流式预览。
 - 管理员权限窗口、远程桌面、企业 IM 等输入控件还需要在真实 Windows 机器上补充回归测试。
