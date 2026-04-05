@@ -4,9 +4,9 @@ namespace HsAsrDictation.Hotkeys;
 
 public sealed class HotkeyGesture
 {
-    public HotkeyModifiers Modifiers { get; init; } = HotkeyModifiers.Control | HotkeyModifiers.Alt;
+    public HotkeyModifiers Modifiers { get; init; } = HotkeyModifiers.Alt;
 
-    public Key Key { get; init; } = Key.Space;
+    public Key Key { get; init; } = Key.Oem3;
 
     public HotkeyGesture CreateCopy() => new()
     {
