@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "isEnabled": true,
+  "rules": [
+    {
+      "id": "builtin.trim-whitespace",
+      "name": "清理首尾空白",
+      "description": "去掉文本首尾的空白字符",
+      "kind": "built_in_transform",
+      "isEnabled": true,
+      "isBuiltIn": true,
+      "order": 100,
+      "parameters": {
+        "transformName": "trim_whitespace"
+      }
+    },
+    {
+      "id": "builtin.normalize-fullwidth-space",
+      "name": "全角空格转半角空格",
+      "description": "将全角空格替换为普通空格",
+      "kind": "exact_replace",
+      "isEnabled": true,
+      "isBuiltIn": true,
+      "order": 200,
+      "parameters": {
+        "find": "　",
+        "replace": " ",
+        "ignoreCase": false
+      }
+    },
+    {
+      "id": "builtin.collapse-multiple-spaces",
+      "name": "压缩连续空格",
+      "description": "将多个连续空格或制表符合并为一个空格",
+      "kind": "regex_replace",
+      "isEnabled": true,
+      "isBuiltIn": true,
+      "order": 300,
+      "parameters": {
+        "pattern": "[ \\t]{2,}",
+        "replacement": " ",
+        "options": "None"
+      }
+    },
+    {
+      "id": "builtin.english-acronym-join",
+      "name": "英语缩写去空格",
+      "description": "将 G P T 这类按字母分开的英语缩写合并为 GPT",
+      "kind": "built_in_transform",
+      "isEnabled": true,
+      "isBuiltIn": true,
+      "order": 400,
+      "parameters": {
+        "transformName": "english_acronym_join",
+        "minLetters": 2,
+        "maxLetters": 8,
+        "preserveCase": true,
+        "onlyAsciiLetters": true
+      }
+    }
+  ]
+}

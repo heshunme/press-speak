@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using System.Windows.Automation;
 using HsAsrDictation.Interop;
@@ -17,6 +18,7 @@ public sealed class ForegroundContextService
     public ForegroundContext Capture()
     {
         var handle = Win32.GetForegroundWindow();
+        var processName = GetProcessName(handle);
         var title = GetWindowTitle(handle);
         var className = GetClassName(handle);
         var isPasswordField = false;
@@ -45,6 +47,7 @@ public sealed class ForegroundContextService
         return new ForegroundContext
         {
             WindowHandle = handle,
+            ProcessName = processName,
             WindowTitle = title,
             ClassName = className,
             IsPasswordField = isPasswordField,
@@ -100,5 +103,30 @@ public sealed class ForegroundContextService
         var builder = new StringBuilder(256);
         Win32.GetClassName(handle, builder, builder.Capacity);
         return builder.ToString();
+    }
+
+    private string GetProcessName(IntPtr handle)
+    {
+        if (handle == IntPtr.Zero)
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            Win32.GetWindowThreadProcessId(handle, out var processId);
+            if (processId == 0)
+            {
+                return string.Empty;
+            }
+
+            using var process = Process.GetProcessById((int)processId);
+            return process.ProcessName;
+        }
+        catch (Exception ex)
+        {
+            _logger.Warn($"读取前台进程名失败：{ex.Message}");
+            return string.Empty;
+        }
     }
 }

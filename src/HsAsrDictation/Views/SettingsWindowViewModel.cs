@@ -1,9 +1,9 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using System.Windows.Input;
 using HsAsrDictation.Audio;
 using HsAsrDictation.Hotkeys;
+using HsAsrDictation.PostProcessing.Models;
 using HsAsrDictation.Settings;
 
 namespace HsAsrDictation.Views;
@@ -17,10 +17,14 @@ public sealed class SettingsWindowViewModel : INotifyPropertyChanged
     private string _hotkeyCapturePrompt = IdleHotkeyCapturePrompt;
     private bool _isCapturingHotkey;
 
-    public SettingsWindowViewModel(AppSettings settings, IReadOnlyList<AudioDeviceInfo> devices)
+    public SettingsWindowViewModel(
+        AppSettings settings,
+        IReadOnlyList<AudioDeviceInfo> devices,
+        PostProcessingConfig postProcessingConfig)
     {
         Devices = new ObservableCollection<AudioDeviceInfo>(devices);
         RecognitionModes = new ObservableCollection<RecognitionModeOption>(BuildRecognitionModes());
+        PostProcessing = new PostProcessingRulesViewModel(postProcessingConfig);
         _candidateHotkey = settings.Hotkey.CreateCopy();
 
         SelectedDeviceName = settings.PreferredInputDeviceName;
@@ -38,6 +42,8 @@ public sealed class SettingsWindowViewModel : INotifyPropertyChanged
     public ObservableCollection<AudioDeviceInfo> Devices { get; }
 
     public ObservableCollection<RecognitionModeOption> RecognitionModes { get; }
+
+    public PostProcessingRulesViewModel PostProcessing { get; }
 
     public string? SelectedDeviceName { get; set; }
 
@@ -106,6 +112,7 @@ public sealed class SettingsWindowViewModel : INotifyPropertyChanged
             AllowClipboardFallback = AllowClipboardFallback,
             AutoDownloadModel = AutoDownloadModel,
             EnablePunctuation = EnablePunctuation,
+            EnablePostProcessingRules = PostProcessing.IsRuleSystemEnabled,
             RecognitionMode = SelectedRecognitionMode.Mode,
             EnableStreamingPreview = EnableStreamingPreview,
             Hotkey = CandidateHotkey.CreateCopy()

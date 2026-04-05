@@ -24,4 +24,8 @@
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\PostProcessing\default-rules.json" />
+  </ItemGroup>
 </Project>

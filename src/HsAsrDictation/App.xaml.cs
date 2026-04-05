@@ -8,6 +8,8 @@ using HsAsrDictation.Logging;
 using HsAsrDictation.Models;
 using HsAsrDictation.Notifications;
 using HsAsrDictation.Overlay;
+using HsAsrDictation.PostProcessing.Abstractions;
+using HsAsrDictation.PostProcessing.Engine;
 using HsAsrDictation.Services;
 using HsAsrDictation.Settings;
 using HsAsrDictation.Tray;
@@ -29,6 +31,9 @@ public partial class App : System.Windows.Application
     private IPunctuationService? _punctuationService;
     private ForegroundContextService? _foregroundContextService;
     private ITextInsertionService? _textInsertionService;
+    private IPostProcessingRuleRepository? _postProcessingRuleRepository;
+    private IPostProcessingRuleFactory? _postProcessingRuleFactory;
+    private IPostProcessingService? _postProcessingService;
     private DictationCoordinator? _coordinator;
     private TrayIconService? _trayIconService;
     private IStatusOverlayService? _statusOverlayService;
@@ -53,6 +58,9 @@ public partial class App : System.Windows.Application
         _punctuationService = new SherpaOfflinePunctuationService(_logger);
         _foregroundContextService = new ForegroundContextService(_logger);
         _textInsertionService = new TextInsertionService(_settingsService, _foregroundContextService, _logger);
+        _postProcessingRuleRepository = new PostProcessingRuleRepository(AppPaths.PostProcessingUserRulesPath, _logger);
+        _postProcessingRuleFactory = new PostProcessingRuleFactory(_logger);
+        _postProcessingService = new PostProcessingService(_postProcessingRuleRepository, _postProcessingRuleFactory, _logger);
         _statusOverlayService = new StatusOverlayService();
         _dictationOverlayController = new DictationOverlayController(_statusOverlayService);
         _coordinator = new DictationCoordinator(
@@ -63,6 +71,7 @@ public partial class App : System.Windows.Application
             _asrEngine,
             _streamingAsrEngine,
             _punctuationService,
+            _postProcessingService,
             _foregroundContextService,
             _textInsertionService,
             _notificationService,
@@ -117,7 +126,12 @@ public partial class App : System.Windows.Application
 
     private void OpenSettingsWindow()
     {
-        if (_settingsService is null || _audioCaptureService is null || _hotkeyManager is null || _coordinator is null)
+        if (_settingsService is null ||
+            _audioCaptureService is null ||
+            _hotkeyManager is null ||
+            _coordinator is null ||
+            _postProcessingRuleRepository is null ||
+            _postProcessingService is null)
         {
             return;
         }
@@ -140,7 +154,9 @@ public partial class App : System.Windows.Application
             _settingsWindow = new SettingsWindow(
                 _settingsService.Current,
                 _audioCaptureService.GetInputDevices(),
-                _hotkeyManager);
+                _hotkeyManager,
+                _postProcessingRuleRepository,
+                _postProcessingService);
 
             _settingsWindow.SettingsSaved += (_, updatedSettings) =>
             {

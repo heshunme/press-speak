@@ -2,6 +2,9 @@ using System.Windows;
 using System.Windows.Input;
 using HsAsrDictation.Audio;
 using HsAsrDictation.Hotkeys;
+using HsAsrDictation.PostProcessing.Abstractions;
+using HsAsrDictation.PostProcessing.Engine;
+using HsAsrDictation.PostProcessing.Validation;
 using HsAsrDictation.Settings;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 
@@ -11,16 +14,28 @@ public partial class SettingsWindow : Window
 {
     private readonly SettingsWindowViewModel _viewModel;
     private readonly IHotkeyManager _hotkeyManager;
+    private readonly IPostProcessingRuleRepository _postProcessingRuleRepository;
+    private readonly IPostProcessingService _postProcessingService;
     private readonly HotkeyGesture _runtimeHotkey;
     private HotkeyGesture? _captureStartingHotkey;
     private bool _hotkeySuspended;
 
-    public SettingsWindow(AppSettings currentSettings, IReadOnlyList<AudioDeviceInfo> devices, IHotkeyManager hotkeyManager)
+    public SettingsWindow(
+        AppSettings currentSettings,
+        IReadOnlyList<AudioDeviceInfo> devices,
+        IHotkeyManager hotkeyManager,
+        IPostProcessingRuleRepository postProcessingRuleRepository,
+        IPostProcessingService postProcessingService)
     {
         InitializeComponent();
         _hotkeyManager = hotkeyManager;
+        _postProcessingRuleRepository = postProcessingRuleRepository;
+        _postProcessingService = postProcessingService;
         _runtimeHotkey = currentSettings.Hotkey.CreateCopy();
-        _viewModel = new SettingsWindowViewModel(currentSettings, devices);
+        _viewModel = new SettingsWindowViewModel(
+            currentSettings,
+            devices,
+            _postProcessingRuleRepository.Load());
         DataContext = _viewModel;
     }
 
@@ -46,10 +61,26 @@ public partial class SettingsWindow : Window
             return;
         }
 
+        var config = _viewModel.PostProcessing.BuildConfig();
+        var (ok, error) = RuleValidator.ValidateConfig(config);
+        if (!ok)
+        {
+            System.Windows.MessageBox.Show(this, error, "HsAsrDictation");
+            return;
+        }
+
         var updatedSettings = _viewModel.ToSettings();
-        SettingsSaved?.Invoke(this, updatedSettings);
-        ResumeRuntimeHotkeyIfNeeded();
-        Close();
+        try
+        {
+            _postProcessingRuleRepository.Save(config);
+            SettingsSaved?.Invoke(this, updatedSettings);
+            ResumeRuntimeHotkeyIfNeeded();
+            Close();
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(this, $"保存后处理规则失败：{ex.Message}", "HsAsrDictation");
+        }
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e)
@@ -188,5 +219,81 @@ public partial class SettingsWindow : Window
         }
 
         ResumeRuntimeHotkeyIfNeeded();
+    }
+
+    private void AddRule_Click(object sender, RoutedEventArgs e)
+    {
+        _viewModel.PostProcessing.AddRule();
+    }
+
+    private void DuplicateRule_Click(object sender, RoutedEventArgs e)
+    {
+        _viewModel.PostProcessing.DuplicateSelectedRule();
+    }
+
+    private void DeleteRule_Click(object sender, RoutedEventArgs e)
+    {
+        _viewModel.PostProcessing.DeleteSelectedRule();
+    }
+
+    private void MoveRuleUp_Click(object sender, RoutedEventArgs e)
+    {
+        _viewModel.PostProcessing.MoveSelectedRule(-1);
+    }
+
+    private void MoveRuleDown_Click(object sender, RoutedEventArgs e)
+    {
+        _viewModel.PostProcessing.MoveSelectedRule(1);
+    }
+
+    private void ResetRule_Click(object sender, RoutedEventArgs e)
+    {
+        var selectedRule = _viewModel.PostProcessing.SelectedRule;
+        if (selectedRule is null || !selectedRule.IsBuiltIn)
+        {
+            return;
+        }
+
+        try
+        {
+            _postProcessingRuleRepository.ResetBuiltInOverride(selectedRule.Id);
+            _viewModel.PostProcessing.Load(_postProcessingRuleRepository.Load());
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(this, $"恢复默认失败：{ex.Message}", "HsAsrDictation");
+        }
+    }
+
+    private void TestRules_Click(object sender, RoutedEventArgs e)
+    {
+        var config = _viewModel.PostProcessing.BuildConfig();
+        var (ok, error) = RuleValidator.ValidateConfig(config);
+        if (!ok)
+        {
+            System.Windows.MessageBox.Show(this, error, "HsAsrDictation");
+            return;
+        }
+
+        try
+        {
+            var result = _postProcessingService.TestProcess(
+                config,
+                _viewModel.PostProcessing.TestInput,
+                new RuleExecutionContext
+                {
+                    IsPasswordField = false
+                });
+
+            _viewModel.PostProcessing.TestOutput = result.Output;
+            _viewModel.PostProcessing.TestTrace = result.TraceEntries.Count == 0
+                ? (result.UsedFallback ? "已回退原始文本。" : "没有规则命中。")
+                : string.Join(Environment.NewLine, result.TraceEntries.Select(entry =>
+                    $"{entry.RuleId} | {(entry.Failed ? "FAILED" : entry.Changed ? "CHANGED" : "SKIPPED")} | {entry.Message}"));
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(this, $"规则测试失败：{ex.Message}", "HsAsrDictation");
+        }
     }
 }

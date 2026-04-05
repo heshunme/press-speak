@@ -22,6 +22,8 @@ public sealed class AppSettings
 
     public bool EnablePunctuation { get; init; } = false;
 
+    public bool EnablePostProcessingRules { get; init; } = true;
+
     public RecognitionMode RecognitionMode { get; init; } = RecognitionMode.Hybrid;
 
     public bool EnableStreamingPreview { get; init; } = true;
@@ -50,6 +52,7 @@ public sealed class AppSettings
             AllowClipboardFallback = AllowClipboardFallback,
             AutoDownloadModel = AutoDownloadModel,
             EnablePunctuation = EnablePunctuation,
+            EnablePostProcessingRules = EnablePostProcessingRules,
             RecognitionMode = RecognitionMode,
             EnableStreamingPreview = EnableStreamingPreview
         };

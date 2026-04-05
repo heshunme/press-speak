@@ -41,9 +41,29 @@
     <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyCaptureEvaluator.cs" Link="Source\Hotkeys\HotkeyCaptureEvaluator.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Overlay\IStatusOverlayService.cs" Link="Source\IStatusOverlayService.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Overlay\DictationOverlayController.cs" Link="Source\DictationOverlayController.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Abstractions\IPostProcessingRule.cs" Link="Source\PostProcessing\Abstractions\IPostProcessingRule.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Abstractions\IPostProcessingRuleFactory.cs" Link="Source\PostProcessing\Abstractions\IPostProcessingRuleFactory.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Abstractions\IPostProcessingRuleRepository.cs" Link="Source\PostProcessing\Abstractions\IPostProcessingRuleRepository.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Abstractions\IPostProcessingService.cs" Link="Source\PostProcessing\Abstractions\IPostProcessingService.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Engine\PostProcessingRuleFactory.cs" Link="Source\PostProcessing\Engine\PostProcessingRuleFactory.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Engine\PostProcessingRuleRepository.cs" Link="Source\PostProcessing\Engine\PostProcessingRuleRepository.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Engine\PostProcessingService.cs" Link="Source\PostProcessing\Engine\PostProcessingService.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Engine\PostProcessingTraceEntry.cs" Link="Source\PostProcessing\Engine\PostProcessingTraceEntry.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Engine\PostProcessingTraceResult.cs" Link="Source\PostProcessing\Engine\PostProcessingTraceResult.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Engine\RuleApplyResult.cs" Link="Source\PostProcessing\Engine\RuleApplyResult.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Engine\RuleExecutionContext.cs" Link="Source\PostProcessing\Engine\RuleExecutionContext.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Models\PostProcessingConfig.cs" Link="Source\PostProcessing\Models\PostProcessingConfig.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Models\RuleDefinition.cs" Link="Source\PostProcessing\Models\RuleDefinition.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Rules\ExactReplaceRule.cs" Link="Source\PostProcessing\Rules\ExactReplaceRule.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Rules\RegexReplaceRule.cs" Link="Source\PostProcessing\Rules\RegexReplaceRule.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Rules\TrimWhitespaceRule.cs" Link="Source\PostProcessing\Rules\TrimWhitespaceRule.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Rules\EnglishAcronymJoinRule.cs" Link="Source\PostProcessing\Rules\EnglishAcronymJoinRule.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Validation\RegexSafetyValidator.cs" Link="Source\PostProcessing\Validation\RegexSafetyValidator.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Validation\RuleValidator.cs" Link="Source\PostProcessing\Validation\RuleValidator.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Settings\RecognitionMode.cs" Link="Source\Settings\RecognitionMode.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Services\DictationStatus.cs" Link="Source\Services\DictationStatus.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Services\DictationState.cs" Link="Source\DictationState.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Services\ModelResidencyManager.cs" Link="Source\Services\ModelResidencyManager.cs" />
+    <EmbeddedResource Include="..\..\src\HsAsrDictation\Resources\PostProcessing\default-rules.json" Link="Resources\PostProcessing\default-rules.json" />
   </ItemGroup>
 </Project>

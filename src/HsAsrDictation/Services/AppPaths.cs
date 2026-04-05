@@ -8,7 +8,12 @@ public static class AppPaths
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "HsAsrDictation");
 
+    public static string SettingsDirectory => BasePath;
+
     public static string SettingsFilePath => Path.Combine(BasePath, "settings.json");
+
+    public static string PostProcessingUserRulesPath =>
+        Path.Combine(SettingsDirectory, "postprocessing-rules.user.json");
 
     public static string LogsDirectory => Path.Combine(BasePath, "logs");
 

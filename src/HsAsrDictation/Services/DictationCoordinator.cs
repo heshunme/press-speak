@@ -8,6 +8,8 @@ using HsAsrDictation.Insertion;
 using HsAsrDictation.Logging;
 using HsAsrDictation.Models;
 using HsAsrDictation.Notifications;
+using HsAsrDictation.PostProcessing.Abstractions;
+using HsAsrDictation.PostProcessing.Engine;
 using HsAsrDictation.Settings;
 
 namespace HsAsrDictation.Services;
@@ -21,6 +23,7 @@ public sealed class DictationCoordinator
     private readonly IAsrEngine _asrEngine;
     private readonly IStreamingAsrEngine _streamingAsrEngine;
     private readonly IPunctuationService _punctuationService;
+    private readonly IPostProcessingService _postProcessingService;
     private readonly ModelResidencyManager _modelResidencyManager;
     private readonly ForegroundContextService _foregroundContextService;
     private readonly ITextInsertionService _textInsertionService;
@@ -45,6 +48,7 @@ public sealed class DictationCoordinator
         IAsrEngine asrEngine,
         IStreamingAsrEngine streamingAsrEngine,
         IPunctuationService punctuationService,
+        IPostProcessingService postProcessingService,
         ForegroundContextService foregroundContextService,
         ITextInsertionService textInsertionService,
         NotificationService notificationService,
@@ -57,6 +61,7 @@ public sealed class DictationCoordinator
         _asrEngine = asrEngine;
         _streamingAsrEngine = streamingAsrEngine;
         _punctuationService = punctuationService;
+        _postProcessingService = postProcessingService;
         _modelResidencyManager = new ModelResidencyManager(
             _modelProvisioningService,
             _asrEngine,
@@ -265,6 +270,12 @@ public sealed class DictationCoordinator
 
             SetState(DictationState.Inserting);
             finalText = _punctuationService.TryAddPunctuation(finalText);
+            if (settings.EnablePostProcessingRules)
+            {
+                finalText = _postProcessingService.TryProcess(finalText, CreateRuleExecutionContext(
+                    _captureContext ?? _foregroundContextService.Capture()));
+            }
+
             var insertionResult = await _textInsertionService.InsertAsync(
                 finalText,
                 _captureContext ?? _foregroundContextService.Capture());
@@ -481,5 +492,15 @@ public sealed class DictationCoordinator
     {
         var collapsed = Regex.Replace(input.Trim(), @"\s+", " ");
         return collapsed.Replace(" ,", ",").Replace(" .", ".");
+    }
+
+    private static RuleExecutionContext CreateRuleExecutionContext(ForegroundContext context)
+    {
+        return new RuleExecutionContext
+        {
+            ProcessName = string.IsNullOrWhiteSpace(context.ProcessName) ? null : context.ProcessName,
+            WindowTitle = string.IsNullOrWhiteSpace(context.WindowTitle) ? null : context.WindowTitle,
+            IsPasswordField = context.IsPasswordField
+        };
     }
 }
