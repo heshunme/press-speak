@@ -1,71 +1,33 @@
 # HsAsrDictation
 
-HsAsrDictation 是一个面向 `Windows 11 x64` 的常驻听写应用，使用本地 CPU 做语音识别，支持离线主链路、可选流式预览和最终标点后处理，并把结果直接回写到触发热键时所在的输入位置。
+`HsAsrDictation` 是一个面向 `Windows 11 x64` 的本地听写应用。它常驻托盘，按住全局热键说话，松开后把识别结果直接写回当前输入位置。整个主链路基于本地 CPU 和 `sherpa-onnx`，支持离线识别、可选流式预览、离线标点和通用后处理规则。
 
-项目当前已经覆盖 MVP 主链路：
+## 项目亮点
 
-- 托盘常驻
-- 全局按住说话热键
-- 麦克风录音
-- 模型自动下载、解压与校验
-- 本地识别（离线 + 可选流式）
-- 最终文本标点后处理（可开关）
-- 通用后处理规则系统（可开关，支持默认规则和自定义规则）
-- 文本回写
-- 剪贴板回退
-- 最小设置窗
-- 本地日志
+- 托盘常驻，启动后不打断当前工作流
+- 全局 Push-to-Talk 热键，支持按下开始、松开结束
+- 麦克风录音、首尾静音裁剪和 30 秒上限保护
+- 本地离线识别，支持可选流式预览
+- 首次运行可自动下载、解压并校验模型
+- 最终文本支持离线标点和可配置后处理规则
+- 优先使用 `SendInput(KEYEVENTF_UNICODE)` 写回，失败后可回退到剪贴板粘贴
+- 提供最小设置窗、本地日志和可测试的纯逻辑模块
 
-## 功能概览
+## 工作方式
 
-1. 按住全局热键开始录音，松开后结束录音。
-2. 对录音进行首尾静音裁剪。
-3. 使用 `sherpa-onnx` 的本地模型完成离线识别，或在开启时使用流式模式。
-4. 优先通过 `SendInput(KEYEVENTF_UNICODE)` 写回文本。
-5. 如果注入失败，可以回退到剪贴板粘贴。
-6. 如果启用标点，会先对最终识别文本做一次离线标点后处理。
-7. 如果启用后处理规则，会继续对最终文本按规则做一次稳定的可配置修正。
+1. 按住热键开始录音。
+2. 松开热键结束录音。
+3. 程序先裁剪静音，再进行本地识别。
+4. 对最终文本执行标点和后处理。
+5. 将结果写回当前输入框。
 
-默认热键是 `Alt + Oem3`，可以在设置页点击“开始录入”后按下新组合键修改。
+## 技术栈
 
-## 项目结构
-
-```text
-src/HsAsrDictation/
-  Asr/
-  Audio/
-  Foreground/
-  Hotkeys/
-  Insertion/
-  Interop/
-  Logging/
-  Models/
-  Notifications/
-  Overlay/
-  Services/
-  Settings/
-  Tray/
-  Views/
-tests/HsAsrDictation.Tests/
-scripts/
-docs/design.md
-docs/implementation-status-report.md
-```
-
-核心模块：
-
-- `Services/DictationCoordinator.cs`：串联录音、识别、状态切换和写回
-- `Hotkeys/LowLevelKeyboardHotkeyManager.cs`：全局按下/释放热键检测
-- `Audio/WaveInAudioCaptureService.cs`：录音采集
-- `Audio/AudioSilenceTrimmer.cs`：静音裁剪
-- `Models/ModelProvisioningService.cs`：模型下载、解压、校验
-- `Asr/SherpaFunAsrNanoEngine.cs`：离线识别封装
-- `Asr/SherpaStreamingParaformerEngine.cs`：流式识别封装
-- `Asr/SherpaOfflinePunctuationService.cs`：离线标点后处理
-- `PostProcessing/Engine/PostProcessingService.cs`：最终写回前的通用后处理规则执行器
-- `Insertion/TextInsertionService.cs`：文本注入与剪贴板回退
-- `Tray/TrayIconService.cs`：托盘菜单与状态提示
-- `Settings/SettingsService.cs`：本地设置读写
+- `.NET 8`
+- `WPF` 和 `Windows Forms` 托盘能力
+- `NAudio`
+- `org.k2fsa.sherpa.onnx`
+- `SharpCompress`
 
 ## 环境要求
 
@@ -75,24 +37,30 @@ docs/implementation-status-report.md
 
 说明：
 
-- 这是一个 WPF 桌面应用，项目文件是 `src/HsAsrDictation/HsAsrDictation.csproj`，仓库里没有 `.sln`。
-- 当前实现是面向 Windows 的，Linux 环境可用于阅读和测试部分纯逻辑代码，但无法完成真正的 `.exe` 发布验证。
+- 仓库没有 `.sln`，请直接使用项目文件进行构建和测试。
+- 当前实现是 Windows-only；Linux 可以阅读和测试部分纯逻辑代码，但不能完成完整桌面行为验证。
 
 ## 快速开始
 
-### 1. 构建
+### 构建
 
 ```bash
 dotnet build src/HsAsrDictation/HsAsrDictation.csproj
 ```
 
-### 2. 测试
+### 运行
+
+```bash
+dotnet run --project src/HsAsrDictation/HsAsrDictation.csproj
+```
+
+### 测试
 
 ```bash
 dotnet test tests/HsAsrDictation.Tests/HsAsrDictation.Tests.csproj
 ```
 
-### 3. 发布
+### 发布
 
 Linux / Bash：
 
@@ -106,11 +74,7 @@ PowerShell：
 pwsh ./scripts/publish-win-x64.ps1 -Configuration Release
 ```
 
-发布输出默认在：
-
-```text
-artifacts/publish/win-x64/
-```
+发布产物默认输出到 `artifacts/publish/win-x64/`。
 
 ## 首次运行
 
@@ -126,48 +90,48 @@ artifacts/publish/win-x64/
 - 流式模型目录：`%LOCALAPPDATA%\HsAsrDictation\models\streaming`
 - 标点模型目录：`%LOCALAPPDATA%\HsAsrDictation\models\punctuation`
 
-设置页里可以调整：
+默认热键是 `Alt + Oem3`。你可以在设置页点击“开始录入”，然后按下新的组合键保存。
 
-- 输入设备
-- 点击录入后按下组合键设置热键
-- 识别模式
-- 离线模型目录
-- 流式模型目录
-- 是否允许自动下载模型
-- 是否允许剪贴板回退
-- 是否启用标点
-- 是否启用后处理规则
-- 是否启用流式预览
-- 后处理规则列表、测试与默认规则编辑
+设置页支持：
 
-## 使用方式
+- 输入设备选择
+- 热键录入
+- 识别模式切换（非流式 / 混合 / 仅流式）
+- 离线和流式模型目录配置
+- 自动下载模型开关
+- 剪贴板回退开关
+- 标点开关
+- 通用后处理规则开关
+- 流式预览开关
+- 后处理规则列表、测试和恢复默认规则
 
-1. 启动应用后，程序会常驻托盘，不会默认弹出主窗口。
-2. 在任意输入框中按住热键说话。
-3. 松开热键后，应用会开始识别并回写文本。
-4. 如果识别失败、模型缺失或注入失败，可以查看托盘提示和本地日志。
+## 核心模块
 
-## 设计与现状
+- `Services/DictationCoordinator.cs`：串起录音、识别、状态流转和写回
+- `Hotkeys/LowLevelKeyboardHotkeyManager.cs`：全局按下和松开热键检测
+- `Audio/WaveInAudioCaptureService.cs`：麦克风录音
+- `Audio/AudioSilenceTrimmer.cs`：首尾静音裁剪
+- `Models/ModelProvisioningService.cs`：ASR 模型下载、解压和校验
+- `Asr/SherpaFunAsrNanoEngine.cs`：离线识别封装
+- `Asr/SherpaStreamingParaformerEngine.cs`：流式识别封装
+- `Asr/SherpaOfflinePunctuationService.cs`：离线标点后处理
+- `PostProcessing/Engine/PostProcessingService.cs`：通用后处理规则执行
+- `Insertion/TextInsertionService.cs`：文本注入与剪贴板回退
+- `Tray/TrayIconService.cs`：托盘菜单和状态提示
+- `Views/SettingsWindow.xaml`：设置界面
 
-如果你想了解这个项目的设计目标和当前实现状态，可以继续看：
+## 项目结构
 
-- [`docs/design.md`](docs/design.md)
-- [`docs/implementation-status-report.md`](docs/implementation-status-report.md)
-- [`docs/post-processing-design.md`](docs/post-processing-design.md)
-- [`docs/punctuation-design.md`](docs/punctuation-design.md)
+```text
+src/HsAsrDictation/        WPF 桌面应用
+tests/HsAsrDictation.Tests/  xUnit 测试
+scripts/                   发布脚本
+docs/                      设计与实现说明
+```
 
-## 已知限制
+## 测试覆盖
 
-- 当前首版没有接入更复杂的 VAD，只做了能量阈值静音裁剪。
-- 当前只提供录音期间的流式预览，不做持续边说边写回目标输入框。
-- 标点只作用于最终写回文本，不会改写流式预览。
-- 通用后处理规则同样只作用于最终写回文本，不改写流式预览。
-- 管理员窗口、远程桌面和企业 IM 等输入环境还需要在真实 Windows 机器上补充回归测试。
-- 当前开发环境如果不是 Windows，无法完成完整桌面行为验证。
-
-## 测试说明
-
-目前已有的单元测试主要覆盖可复用逻辑，例如：
+当前自动化测试主要覆盖可复用逻辑，例如：
 
 - `AudioSilenceTrimmer`
 - `ModelManifest`
@@ -175,10 +139,28 @@ artifacts/publish/win-x64/
 - `PunctuationModelProvisioningService`
 - `SherpaOfflinePunctuationService`
 - `DictationOverlayController`
-- 后处理规则引擎、规则仓储与英语缩写去空格规则
+- 后处理规则引擎、规则仓储与默认规则
 
-测试项目位于 `tests/HsAsrDictation.Tests/`，采用 `xUnit`。
+## 已知限制
+
+- 当前首版没有接入真正的 VAD，只做了能量阈值静音裁剪。
+- 当前只提供录音期间的流式预览，不做持续边说边写回目标输入框。
+- 标点和通用后处理只作用于最终写回文本，不改写流式预览。
+- 管理员窗口、远程桌面和企业 IM 等输入环境还需要在真实 Windows 机器上补充回归测试。
+
+## 文档
+
+如果你想了解设计目标和当前实现状态，可以继续看：
+
+- `docs/design.md`
+- `docs/implementation-status-report.md`
+- `docs/post-processing-design.md`
+- `docs/punctuation-design.md`
+
+## 贡献
+
+欢迎通过 issue 和 PR 参与改进。涉及热键、托盘、模型下载、文本写回等 Windows-only 功能时，建议附上操作系统版本、输入法和复现步骤，方便快速定位问题。
 
 ## 许可证
 
-当前仓库未单独声明许可证；如果需要对外分发，建议先补充 LICENSE 文件。
+当前仓库未单独声明许可证；如果需要对外分发，建议先补充 `LICENSE` 文件。
