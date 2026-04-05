@@ -39,6 +39,7 @@
     <Compile Include="..\..\src\HsAsrDictation\Asr\SherpaOfflinePunctuationService.cs" Link="Source\Asr\SherpaOfflinePunctuationService.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyModifiers.cs" Link="Source\Hotkeys\HotkeyModifiers.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyCaptureEvaluator.cs" Link="Source\Hotkeys\HotkeyCaptureEvaluator.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyDisplayPresentation.cs" Link="Source\Hotkeys\HotkeyDisplayPresentation.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Overlay\IStatusOverlayService.cs" Link="Source\IStatusOverlayService.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Overlay\DictationOverlayController.cs" Link="Source\DictationOverlayController.cs" />
     <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Abstractions\IPostProcessingRule.cs" Link="Source\PostProcessing\Abstractions\IPostProcessingRule.cs" />

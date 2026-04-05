@@ -31,11 +31,12 @@ public partial class SettingsWindow : Window
         _hotkeyManager = hotkeyManager;
         _postProcessingRuleRepository = postProcessingRuleRepository;
         _postProcessingService = postProcessingService;
-        _runtimeHotkey = currentSettings.Hotkey.CreateCopy();
+        _runtimeHotkey = _hotkeyManager.CurrentGesture.CreateCopy();
         _viewModel = new SettingsWindowViewModel(
             currentSettings,
             devices,
-            _postProcessingRuleRepository.Load());
+            _postProcessingRuleRepository.Load(),
+            _hotkeyManager.CurrentGesture);
         DataContext = _viewModel;
     }
 

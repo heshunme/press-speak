@@ -10,22 +10,25 @@ namespace HsAsrDictation.Views;
 
 public sealed class SettingsWindowViewModel : INotifyPropertyChanged
 {
-    private const string IdleHotkeyCapturePrompt = "点击“开始录入”，然后按下要作为热键的组合键。";
     private const string ActiveHotkeyCapturePrompt = "请按下组合键，Esc 取消。";
 
+    private readonly HotkeyGesture _runtimeHotkey;
     private HotkeyGesture _candidateHotkey;
-    private string _hotkeyCapturePrompt = IdleHotkeyCapturePrompt;
+    private string _hotkeyCapturePrompt = string.Empty;
     private bool _isCapturingHotkey;
 
     public SettingsWindowViewModel(
         AppSettings settings,
         IReadOnlyList<AudioDeviceInfo> devices,
-        PostProcessingConfig postProcessingConfig)
+        PostProcessingConfig postProcessingConfig,
+        HotkeyGesture? runtimeHotkey = null)
     {
+        var effectiveHotkey = (runtimeHotkey ?? settings.Hotkey).CreateCopy();
         Devices = new ObservableCollection<AudioDeviceInfo>(devices);
         RecognitionModes = new ObservableCollection<RecognitionModeOption>(BuildRecognitionModes());
         PostProcessing = new PostProcessingRulesViewModel(postProcessingConfig);
-        _candidateHotkey = settings.Hotkey.CreateCopy();
+        _runtimeHotkey = effectiveHotkey;
+        _candidateHotkey = effectiveHotkey.CreateCopy();
 
         SelectedDeviceName = settings.PreferredInputDeviceName;
         OfflineModelRootPath = settings.OfflineModelRootPath;
@@ -35,6 +38,7 @@ public sealed class SettingsWindowViewModel : INotifyPropertyChanged
         EnablePunctuation = settings.EnablePunctuation;
         EnableStreamingPreview = settings.EnableStreamingPreview;
         SelectedRecognitionMode = RecognitionModes.First(x => x.Mode == settings.RecognitionMode);
+        _hotkeyCapturePrompt = BuildIdleHotkeyPrompt();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -77,7 +81,10 @@ public sealed class SettingsWindowViewModel : INotifyPropertyChanged
         }
     }
 
-    public string HotkeyDisplayText => CandidateHotkey.ToDisplayText();
+    public string HotkeyDisplayText => HotkeyDisplayPresentation.BuildDisplayText(
+        _runtimeHotkey.ToDisplayText(),
+        CandidateHotkey.ToDisplayText(),
+        HasPendingHotkey);
 
     public string HotkeyCapturePrompt
     {
@@ -129,16 +136,19 @@ public sealed class SettingsWindowViewModel : INotifyPropertyChanged
     {
         CandidateHotkey = restoredHotkey.CreateCopy();
         IsCapturingHotkey = false;
-        HotkeyCapturePrompt = keepPendingHotkey
-            ? $"已取消本次录入，保留候选热键：{HotkeyDisplayText}"
-            : $"已取消热键录入，当前热键：{HotkeyDisplayText}";
+        HotkeyCapturePrompt = HotkeyDisplayPresentation.BuildCanceledPrompt(
+            _runtimeHotkey.ToDisplayText(),
+            CandidateHotkey.ToDisplayText(),
+            keepPendingHotkey);
     }
 
     public void SetCapturedHotkey(HotkeyGesture hotkey)
     {
         CandidateHotkey = hotkey.CreateCopy();
         IsCapturingHotkey = false;
-        HotkeyCapturePrompt = $"已记录新热键：{HotkeyDisplayText}";
+        HotkeyCapturePrompt = HotkeyDisplayPresentation.BuildCapturedPrompt(
+            _runtimeHotkey.ToDisplayText(),
+            CandidateHotkey.ToDisplayText());
     }
 
     public void ShowPressedModifiers(HotkeyModifiers modifiers)
@@ -150,6 +160,15 @@ public sealed class SettingsWindowViewModel : INotifyPropertyChanged
     {
         HotkeyCapturePrompt = prompt;
     }
+
+    private bool HasPendingHotkey => !_runtimeHotkey.IsEquivalentTo(CandidateHotkey);
+
+    private string BuildIdleHotkeyPrompt() =>
+        HasPendingHotkey
+            ? HotkeyDisplayPresentation.BuildPendingPrompt(
+                _runtimeHotkey.ToDisplayText(),
+                CandidateHotkey.ToDisplayText())
+            : HotkeyDisplayPresentation.BuildIdlePrompt(_runtimeHotkey.ToDisplayText());
 
     private static IEnumerable<RecognitionModeOption> BuildRecognitionModes()
     {
