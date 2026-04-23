@@ -4,6 +4,7 @@ using System.Windows.Input;
 using HsAsrDictation.Audio;
 using HsAsrDictation.Hotkeys;
 using HsAsrDictation.Interop;
+using HsAsrDictation.Logging;
 using HsAsrDictation.PostProcessing.Abstractions;
 using HsAsrDictation.PostProcessing.Engine;
 using HsAsrDictation.PostProcessing.Validation;
@@ -15,6 +16,7 @@ public partial class SettingsWindow : Window
 {
     private readonly SettingsWindowViewModel _viewModel;
     private readonly IHotkeyManager _hotkeyManager;
+    private readonly LocalLogService _logger;
     private readonly IPostProcessingRuleRepository _postProcessingRuleRepository;
     private readonly IPostProcessingService _postProcessingService;
     private readonly HotkeyPressedState _capturePressedState = new();
@@ -27,11 +29,13 @@ public partial class SettingsWindow : Window
         AppSettings currentSettings,
         IReadOnlyList<AudioDeviceInfo> devices,
         IHotkeyManager hotkeyManager,
+        LocalLogService logger,
         IPostProcessingRuleRepository postProcessingRuleRepository,
         IPostProcessingService postProcessingService)
     {
         InitializeComponent();
         _hotkeyManager = hotkeyManager;
+        _logger = logger;
         _postProcessingRuleRepository = postProcessingRuleRepository;
         _postProcessingService = postProcessingService;
         _runtimeHotkey = _hotkeyManager.CurrentGesture.CreateCopy();
@@ -114,6 +118,8 @@ public partial class SettingsWindow : Window
         _capturePressedState.SetPressedModifiers(HotkeyCaptureParser.ToHotkeyModifiers(Keyboard.Modifiers));
         HotkeyCaptureTextBox.SelectAll();
         HotkeyCaptureTextBox.Focus();
+        Keyboard.Focus(HotkeyCaptureTextBox);
+        _logger.Info($"开始热键录入：runtime={_runtimeHotkey.ToDisplayText()}");
     }
 
     protected override void OnClosed(EventArgs e)
@@ -137,6 +143,7 @@ public partial class SettingsWindow : Window
             restoredHotkey,
             keepPendingHotkey: !_runtimeHotkey.IsEquivalentTo(restoredHotkey));
 
+        _logger.Info($"已取消热键录入：restored={restoredHotkey.ToDisplayText()}");
         ReleaseSuspensionIfNoPendingHotkey();
     }
 
@@ -266,7 +273,7 @@ public partial class SettingsWindow : Window
             return IntPtr.Zero;
         }
 
-        var keyEvent = CreateHotkeyEvent(msg, wParam, lParam);
+        var keyEvent = HotkeyEventTranslator.FromWindowMessage(msg, wParam, lParam);
         _capturePressedState.Apply(keyEvent);
         var modifiers = _capturePressedState.GetPressedModifiers(includeAltContext: keyEvent.IsAltContext);
         var failureReason = HotkeyCaptureFailureReason.None;
@@ -287,6 +294,7 @@ public partial class SettingsWindow : Window
         {
             _viewModel.SetCapturedHotkey(gesture!);
             _captureStartingHotkey = null;
+            _logger.Info($"热键录入成功：{FormatEventData(keyEvent)} | modifiers={gesture!.Modifiers} | captured={gesture.ToDisplayText()}");
             ReleaseSuspensionIfNoPendingHotkey();
             handled = true;
             return IntPtr.Zero;
@@ -309,14 +317,17 @@ public partial class SettingsWindow : Window
 
         if (failureReason == HotkeyCaptureFailureReason.MissingPrimaryKey && modifiers != HotkeyModifiers.None)
         {
+            _logger.Info($"热键录入等待主键：{FormatEventData(keyEvent)} | modifiers={modifiers}");
             _viewModel.ShowPressedModifiers(modifiers);
         }
         else if (failureReason == HotkeyCaptureFailureReason.MissingModifier && !keyEvent.IsModifier)
         {
+            _logger.Info($"热键录入缺少修饰键：{FormatEventData(keyEvent)}");
             _viewModel.ShowCaptureGuidance("请至少按住一个修饰键后，再按主键。");
         }
         else if (failureReason == HotkeyCaptureFailureReason.InvalidPrimaryKey)
         {
+            _logger.Info($"热键录入主键无效：{FormatEventData(keyEvent)}");
             _viewModel.ShowCaptureGuidance("该按键不能作为热键主键，请换一个非修饰键。");
         }
 
@@ -324,15 +335,6 @@ public partial class SettingsWindow : Window
         return IntPtr.Zero;
     }
 
-    private static HotkeyEventData CreateHotkeyEvent(int msg, IntPtr wParam, IntPtr lParam)
-    {
-        var virtualKey = wParam.ToInt32();
-        var lParamValue = lParam.ToInt64();
-        var scanCode = unchecked((int)((lParamValue >> 16) & 0xFF));
-        var isExtendedKey = ((lParamValue >> 24) & 0x01) != 0;
-        var isAltContext = msg is Win32.WM_SYSKEYDOWN or Win32.WM_SYSKEYUP;
-        var isKeyDown = msg is Win32.WM_KEYDOWN or Win32.WM_SYSKEYDOWN;
-
-        return new HotkeyEventData(virtualKey, scanCode, isExtendedKey, isKeyDown, isAltContext);
-    }
+    private static string FormatEventData(HotkeyEventData keyEvent) =>
+        $"vk=0x{keyEvent.VirtualKey:X2}, scan=0x{keyEvent.ScanCode:X2}, extended={keyEvent.IsExtendedKey}, altContext={keyEvent.IsAltContext}, keyDown={keyEvent.IsKeyDown}";
 }

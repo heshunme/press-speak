@@ -17,16 +17,24 @@ public static class HotkeyActivationEvaluator
 
     private static bool PrimaryKeyMatches(HotkeyBindingSnapshot binding, HotkeyPressedState pressedState, HotkeyEventData currentEvent)
     {
+        var virtualKeyMatches = binding.VirtualKey > 0 &&
+                                (pressedState.IsVirtualKeyPressed(binding.VirtualKey) ||
+                                 (currentEvent.IsKeyDown &&
+                                  !currentEvent.IsModifier &&
+                                  currentEvent.VirtualKey == binding.VirtualKey));
+
         if (binding.PrimaryScanCode > 0)
         {
-            return pressedState.IsPhysicalKeyPressed(binding.PrimaryScanCode, binding.IsExtendedKey) ||
-                   (currentEvent.IsKeyDown &&
-                    !currentEvent.IsModifier &&
-                    currentEvent.ScanCode == binding.PrimaryScanCode &&
-                    currentEvent.IsExtendedKey == binding.IsExtendedKey);
+            var scanCodeMatches = pressedState.IsPhysicalKeyPressed(binding.PrimaryScanCode, binding.IsExtendedKey) ||
+                                  (currentEvent.IsKeyDown &&
+                                   !currentEvent.IsModifier &&
+                                   currentEvent.ScanCode == binding.PrimaryScanCode &&
+                                   currentEvent.IsExtendedKey == binding.IsExtendedKey);
+
+            return scanCodeMatches || virtualKeyMatches;
         }
 
-        return currentEvent.IsKeyDown && currentEvent.VirtualKey == binding.VirtualKey;
+        return virtualKeyMatches;
     }
 
     private static bool ModifierMatches(

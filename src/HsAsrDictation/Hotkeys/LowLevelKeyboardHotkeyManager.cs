@@ -102,18 +102,20 @@ public sealed class LowLevelKeyboardHotkeyManager : IHotkeyManager
 
             var hookStruct = Marshal.PtrToStructure<Win32.KBDLLHOOKSTRUCT>(lParam);
             var message = wParam.ToInt32();
-            var keyEvent = CreateKeyEvent(hookStruct, message);
+            var keyEvent = HotkeyEventTranslator.FromHook(hookStruct, message);
             _pressedState.Apply(keyEvent);
 
             var nowActive = HotkeyActivationEvaluator.IsActive(CurrentGesture.ToBinding(), _pressedState, keyEvent);
             if (nowActive && !_gestureActive)
             {
                 _gestureActive = true;
+                _logger.Info($"热键按下已命中：{FormatEventData(keyEvent)} | binding={CurrentGesture.ToDisplayText()}");
                 Pressed?.Invoke(this, EventArgs.Empty);
             }
             else if (!nowActive && _gestureActive)
             {
                 _gestureActive = false;
+                _logger.Info($"热键已释放：{FormatEventData(keyEvent)} | binding={CurrentGesture.ToDisplayText()}");
                 Released?.Invoke(this, EventArgs.Empty);
             }
         }
@@ -133,13 +135,6 @@ public sealed class LowLevelKeyboardHotkeyManager : IHotkeyManager
         }
     }
 
-    private static HotkeyEventData CreateKeyEvent(Win32.KBDLLHOOKSTRUCT hookStruct, int message)
-    {
-        return new HotkeyEventData(
-            unchecked((int)hookStruct.vkCode),
-            unchecked((int)hookStruct.scanCode),
-            (hookStruct.flags & Win32.LLKHF_EXTENDED) != 0,
-            message is Win32.WM_KEYDOWN or Win32.WM_SYSKEYDOWN,
-            (hookStruct.flags & Win32.LLKHF_ALTDOWN) != 0);
-    }
+    private static string FormatEventData(HotkeyEventData keyEvent) =>
+        $"vk=0x{keyEvent.VirtualKey:X2}, scan=0x{keyEvent.ScanCode:X2}, extended={keyEvent.IsExtendedKey}, altContext={keyEvent.IsAltContext}, keyDown={keyEvent.IsKeyDown}";
 }

@@ -127,6 +127,7 @@ public partial class App : System.Windows.Application
     private void OpenSettingsWindow()
     {
         if (_settingsService is null ||
+            _logger is null ||
             _audioCaptureService is null ||
             _hotkeyManager is null ||
             _coordinator is null ||
@@ -155,6 +156,7 @@ public partial class App : System.Windows.Application
                 _settingsService.Current,
                 _audioCaptureService.GetInputDevices(),
                 _hotkeyManager,
+                _logger,
                 _postProcessingRuleRepository,
                 _postProcessingService);
 

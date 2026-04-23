@@ -3,6 +3,7 @@ namespace HsAsrDictation.Hotkeys;
 public sealed class HotkeyPressedState
 {
     private readonly HashSet<HotkeyPhysicalKey> _pressedPhysicalKeys = [];
+    private readonly HashSet<int> _pressedVirtualKeys = [];
     private bool _leftControlPressed;
     private bool _rightControlPressed;
     private bool _leftAltPressed;
@@ -17,6 +18,7 @@ public sealed class HotkeyPressedState
     public void SetPressedModifiers(HotkeyModifiers modifiers)
     {
         _pressedPhysicalKeys.Clear();
+        _pressedVirtualKeys.Clear();
         _leftControlPressed = modifiers.HasFlag(HotkeyModifiers.Control);
         _rightControlPressed = false;
         _leftAltPressed = modifiers.HasFlag(HotkeyModifiers.Alt);
@@ -40,10 +42,12 @@ public sealed class HotkeyPressedState
         if (keyEvent.IsKeyDown)
         {
             _pressedPhysicalKeys.Add(key);
+            _pressedVirtualKeys.Add(keyEvent.VirtualKey);
         }
         else
         {
             _pressedPhysicalKeys.Remove(key);
+            _pressedVirtualKeys.Remove(keyEvent.VirtualKey);
         }
     }
 
@@ -88,9 +92,13 @@ public sealed class HotkeyPressedState
     public bool IsPhysicalKeyPressed(int scanCode, bool isExtendedKey) =>
         scanCode > 0 && _pressedPhysicalKeys.Contains(new HotkeyPhysicalKey(scanCode, isExtendedKey));
 
+    public bool IsVirtualKeyPressed(int virtualKey) =>
+        virtualKey > 0 && _pressedVirtualKeys.Contains(virtualKey);
+
     private void ResetModifiersAndKeys()
     {
         _pressedPhysicalKeys.Clear();
+        _pressedVirtualKeys.Clear();
         _leftControlPressed = false;
         _rightControlPressed = false;
         _leftAltPressed = false;
