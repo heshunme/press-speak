@@ -5,18 +5,14 @@ namespace HsAsrDictation.Hotkeys;
 public static class HotkeyCaptureParser
 {
     public static bool TryCreateGesture(
-        Key key,
-        Key systemKey,
-        ModifierKeys modifierKeys,
+        HotkeyEventData keyEvent,
+        HotkeyModifiers modifiers,
         out HotkeyGesture? gesture,
         out HotkeyCaptureFailureReason failureReason)
     {
-        var hotkeyModifiers = ToHotkeyModifiers(modifierKeys);
-        var virtualKey = ResolveVirtualKey(key, systemKey);
-
         if (!HotkeyCaptureEvaluator.TryCreateCandidate(
-                virtualKey,
-                hotkeyModifiers,
+                keyEvent,
+                modifiers,
                 out var candidate,
                 out failureReason))
         {
@@ -27,7 +23,10 @@ public static class HotkeyCaptureParser
         gesture = new HotkeyGesture
         {
             Modifiers = candidate.Modifiers,
-            Key = KeyInterop.KeyFromVirtualKey(candidate.VirtualKey)
+            Key = KeyInterop.KeyFromVirtualKey(candidate.VirtualKey),
+            VirtualKey = candidate.VirtualKey,
+            PrimaryScanCode = candidate.ScanCode,
+            IsExtendedKey = candidate.IsExtendedKey
         };
         return true;
     }

@@ -7,8 +7,15 @@ internal static class Win32
     public const int WH_KEYBOARD_LL = 13;
     public const int WM_KEYDOWN = 0x0100;
     public const int WM_KEYUP = 0x0101;
+    public const int WM_SYSCHAR = 0x0106;
     public const int WM_SYSKEYDOWN = 0x0104;
     public const int WM_SYSKEYUP = 0x0105;
+    public const uint LLKHF_EXTENDED = 0x01;
+    public const uint LLKHF_INJECTED = 0x10;
+    public const uint LLKHF_ALTDOWN = 0x20;
+    public const uint LLKHF_UP = 0x80;
+    public const uint MAPVK_VK_TO_VSC = 0x00;
+    public const uint MAPVK_VSC_TO_VK_EX = 0x03;
     private const uint InputKeyboard = 1;
     private const uint KeyEventFKeyUp = 0x0002;
     private const uint KeyEventFUnicode = 0x0004;
@@ -45,6 +52,12 @@ internal static class Win32
 
     [DllImport("user32.dll", SetLastError = true)]
     public static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+
+    [DllImport("user32.dll")]
+    public static extern uint MapVirtualKey(uint uCode, uint uMapType);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern int GetKeyNameText(int lParam, System.Text.StringBuilder lpString, int nSize);
 
     public static INPUT CreateUnicodeKeyInput(char character, bool keyUp)
     {

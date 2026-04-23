@@ -44,7 +44,7 @@ public sealed class AppSettings
 
         return new AppSettings
         {
-            Hotkey = Hotkey ?? new HotkeyGesture(),
+            Hotkey = (Hotkey ?? new HotkeyGesture()).Normalize(),
             PreferredInputDeviceName = PreferredInputDeviceName,
             ModelRootPath = modelRootPath,
             OfflineModelRootPath = offlineModelRootPath,

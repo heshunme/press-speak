@@ -8,12 +8,16 @@ public enum HotkeyCaptureFailureReason
     InvalidPrimaryKey = 3
 }
 
-public readonly record struct HotkeyCaptureCandidate(HotkeyModifiers Modifiers, int VirtualKey);
+public readonly record struct HotkeyCaptureCandidate(
+    HotkeyModifiers Modifiers,
+    int VirtualKey,
+    int ScanCode,
+    bool IsExtendedKey);
 
 public static class HotkeyCaptureEvaluator
 {
     public static bool TryCreateCandidate(
-        int virtualKey,
+        HotkeyEventData keyEvent,
         HotkeyModifiers modifiers,
         out HotkeyCaptureCandidate candidate,
         out HotkeyCaptureFailureReason failureReason)
@@ -25,28 +29,32 @@ public static class HotkeyCaptureEvaluator
             return false;
         }
 
-        if (virtualKey == 0)
+        if (keyEvent.VirtualKey == 0)
         {
             candidate = default;
             failureReason = HotkeyCaptureFailureReason.MissingPrimaryKey;
             return false;
         }
 
-        if (IsModifierVirtualKey(virtualKey))
+        if (IsModifierVirtualKey(keyEvent.VirtualKey))
         {
             candidate = default;
             failureReason = HotkeyCaptureFailureReason.MissingPrimaryKey;
             return false;
         }
 
-        if (!IsValidPrimaryVirtualKey(virtualKey))
+        if (!IsValidPrimaryVirtualKey(keyEvent.VirtualKey))
         {
             candidate = default;
             failureReason = HotkeyCaptureFailureReason.InvalidPrimaryKey;
             return false;
         }
 
-        candidate = new HotkeyCaptureCandidate(modifiers, virtualKey);
+        candidate = new HotkeyCaptureCandidate(
+            modifiers,
+            keyEvent.VirtualKey,
+            keyEvent.ScanCode,
+            keyEvent.IsExtendedKey);
         failureReason = HotkeyCaptureFailureReason.None;
         return true;
     }

@@ -1,12 +1,13 @@
 using System.Windows;
+using System.Windows.Interop;
 using System.Windows.Input;
 using HsAsrDictation.Audio;
 using HsAsrDictation.Hotkeys;
+using HsAsrDictation.Interop;
 using HsAsrDictation.PostProcessing.Abstractions;
 using HsAsrDictation.PostProcessing.Engine;
 using HsAsrDictation.PostProcessing.Validation;
 using HsAsrDictation.Settings;
-using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 
 namespace HsAsrDictation.Views;
 
@@ -16,8 +17,10 @@ public partial class SettingsWindow : Window
     private readonly IHotkeyManager _hotkeyManager;
     private readonly IPostProcessingRuleRepository _postProcessingRuleRepository;
     private readonly IPostProcessingService _postProcessingService;
+    private readonly HotkeyPressedState _capturePressedState = new();
     private readonly HotkeyGesture _runtimeHotkey;
     private HotkeyGesture? _captureStartingHotkey;
+    private HwndSource? _hwndSource;
     private bool _hotkeySuspended;
 
     public SettingsWindow(
@@ -41,6 +44,13 @@ public partial class SettingsWindow : Window
     }
 
     public event EventHandler<AppSettings>? SettingsSaved;
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        _hwndSource = PresentationSource.FromVisual(this) as HwndSource;
+        _hwndSource?.AddHook(WindowMessageHook);
+    }
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
@@ -100,80 +110,20 @@ public partial class SettingsWindow : Window
         _captureStartingHotkey = _viewModel.CandidateHotkey.CreateCopy();
         SuspendRuntimeHotkeyIfNeeded();
         _viewModel.BeginHotkeyCapture();
+        _capturePressedState.Clear();
+        _capturePressedState.SetPressedModifiers(HotkeyCaptureParser.ToHotkeyModifiers(Keyboard.Modifiers));
         HotkeyCaptureTextBox.SelectAll();
         HotkeyCaptureTextBox.Focus();
-        Keyboard.Focus(HotkeyCaptureTextBox);
-    }
-
-    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
-    {
-        if (!_viewModel.IsCapturingHotkey)
-        {
-            return;
-        }
-
-        var resolvedKey = HotkeyCaptureParser.ResolveKey(e.Key, e.SystemKey);
-        var modifiers = HotkeyCaptureParser.ToHotkeyModifiers(Keyboard.Modifiers);
-
-        if (resolvedKey == Key.Escape)
-        {
-            e.Handled = true;
-            CancelHotkeyCapture();
-            return;
-        }
-
-        if (HotkeyCaptureParser.TryCreateGesture(
-                e.Key,
-                e.SystemKey,
-                Keyboard.Modifiers,
-                out var gesture,
-                out var failureReason))
-        {
-            _viewModel.SetCapturedHotkey(gesture!);
-            _captureStartingHotkey = null;
-            ReleaseSuspensionIfNoPendingHotkey();
-            e.Handled = true;
-            return;
-        }
-
-        if (failureReason == HotkeyCaptureFailureReason.MissingPrimaryKey && modifiers != HotkeyModifiers.None)
-        {
-            _viewModel.ShowPressedModifiers(modifiers);
-        }
-        else if (failureReason == HotkeyCaptureFailureReason.MissingModifier && !HotkeyCaptureParser.IsModifierKey(resolvedKey))
-        {
-            _viewModel.ShowCaptureGuidance("请至少按住一个修饰键后，再按主键。");
-        }
-        else if (failureReason == HotkeyCaptureFailureReason.InvalidPrimaryKey)
-        {
-            _viewModel.ShowCaptureGuidance("该按键不能作为热键主键，请换一个非修饰键。");
-        }
-
-        e.Handled = true;
-    }
-
-    private void Window_PreviewKeyUp(object sender, KeyEventArgs e)
-    {
-        if (!_viewModel.IsCapturingHotkey)
-        {
-            return;
-        }
-
-        var modifiers = HotkeyCaptureParser.ToHotkeyModifiers(Keyboard.Modifiers);
-        if (modifiers == HotkeyModifiers.None)
-        {
-            _viewModel.ShowCaptureGuidance("请按下组合键，Esc 取消。");
-        }
-        else
-        {
-            _viewModel.ShowPressedModifiers(modifiers);
-        }
-
-        e.Handled = true;
     }
 
     protected override void OnClosed(EventArgs e)
     {
+        if (_hwndSource is not null)
+        {
+            _hwndSource.RemoveHook(WindowMessageHook);
+            _hwndSource = null;
+        }
+
         ResumeRuntimeHotkeyIfNeeded();
         base.OnClosed(e);
     }
@@ -296,5 +246,93 @@ public partial class SettingsWindow : Window
         {
             System.Windows.MessageBox.Show(this, $"规则测试失败：{ex.Message}", "HsAsrDictation");
         }
+    }
+
+    private IntPtr WindowMessageHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (!_viewModel.IsCapturingHotkey)
+        {
+            return IntPtr.Zero;
+        }
+
+        if (msg == Win32.WM_SYSCHAR)
+        {
+            handled = true;
+            return IntPtr.Zero;
+        }
+
+        if (msg is not (Win32.WM_KEYDOWN or Win32.WM_SYSKEYDOWN or Win32.WM_KEYUP or Win32.WM_SYSKEYUP))
+        {
+            return IntPtr.Zero;
+        }
+
+        var keyEvent = CreateHotkeyEvent(msg, wParam, lParam);
+        _capturePressedState.Apply(keyEvent);
+        var modifiers = _capturePressedState.GetPressedModifiers(includeAltContext: keyEvent.IsAltContext);
+        var failureReason = HotkeyCaptureFailureReason.None;
+
+        if (keyEvent.IsKeyDown && keyEvent.VirtualKey == 0x1B)
+        {
+            CancelHotkeyCapture();
+            handled = true;
+            return IntPtr.Zero;
+        }
+
+        if (keyEvent.IsKeyDown &&
+            HotkeyCaptureParser.TryCreateGesture(
+                keyEvent,
+                modifiers,
+                out var gesture,
+                out failureReason))
+        {
+            _viewModel.SetCapturedHotkey(gesture!);
+            _captureStartingHotkey = null;
+            ReleaseSuspensionIfNoPendingHotkey();
+            handled = true;
+            return IntPtr.Zero;
+        }
+
+        if (!keyEvent.IsKeyDown)
+        {
+            if (modifiers == HotkeyModifiers.None)
+            {
+                _viewModel.ShowCaptureGuidance("请按下组合键，Esc 取消。");
+            }
+            else
+            {
+                _viewModel.ShowPressedModifiers(modifiers);
+            }
+
+            handled = true;
+            return IntPtr.Zero;
+        }
+
+        if (failureReason == HotkeyCaptureFailureReason.MissingPrimaryKey && modifiers != HotkeyModifiers.None)
+        {
+            _viewModel.ShowPressedModifiers(modifiers);
+        }
+        else if (failureReason == HotkeyCaptureFailureReason.MissingModifier && !keyEvent.IsModifier)
+        {
+            _viewModel.ShowCaptureGuidance("请至少按住一个修饰键后，再按主键。");
+        }
+        else if (failureReason == HotkeyCaptureFailureReason.InvalidPrimaryKey)
+        {
+            _viewModel.ShowCaptureGuidance("该按键不能作为热键主键，请换一个非修饰键。");
+        }
+
+        handled = true;
+        return IntPtr.Zero;
+    }
+
+    private static HotkeyEventData CreateHotkeyEvent(int msg, IntPtr wParam, IntPtr lParam)
+    {
+        var virtualKey = wParam.ToInt32();
+        var lParamValue = lParam.ToInt64();
+        var scanCode = unchecked((int)((lParamValue >> 16) & 0xFF));
+        var isExtendedKey = ((lParamValue >> 24) & 0x01) != 0;
+        var isAltContext = msg is Win32.WM_SYSKEYDOWN or Win32.WM_SYSKEYUP;
+        var isKeyDown = msg is Win32.WM_KEYDOWN or Win32.WM_SYSKEYDOWN;
+
+        return new HotkeyEventData(virtualKey, scanCode, isExtendedKey, isKeyDown, isAltContext);
     }
 }

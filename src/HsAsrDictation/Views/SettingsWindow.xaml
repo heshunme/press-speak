@@ -7,9 +7,7 @@
         Height="810"
         MinWidth="1050"
         MinHeight="740"
-        WindowStartupLocation="CenterScreen"
-        PreviewKeyDown="Window_PreviewKeyDown"
-        PreviewKeyUp="Window_PreviewKeyUp">
+        WindowStartupLocation="CenterScreen">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <x:Array x:Key="RuleKindOptions" Type="{x:Type sys:String}">

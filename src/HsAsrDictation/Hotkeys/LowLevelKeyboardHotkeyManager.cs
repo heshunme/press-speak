@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Windows.Input;
 using HsAsrDictation.Interop;
 using HsAsrDictation.Logging;
 
@@ -8,8 +7,8 @@ namespace HsAsrDictation.Hotkeys;
 
 public sealed class LowLevelKeyboardHotkeyManager : IHotkeyManager
 {
-    private readonly HashSet<int> _pressedKeys = [];
     private readonly LocalLogService _logger;
+    private readonly HotkeyPressedState _pressedState = new();
     private readonly Win32.LowLevelKeyboardProc _hookCallback;
     private IntPtr _hookHandle = IntPtr.Zero;
     private bool _gestureActive;
@@ -30,7 +29,7 @@ public sealed class LowLevelKeyboardHotkeyManager : IHotkeyManager
 
     public void Start(HotkeyGesture gesture)
     {
-        CurrentGesture = gesture;
+        CurrentGesture = gesture.Normalize();
 
         if (_hookHandle != IntPtr.Zero)
         {
@@ -49,14 +48,14 @@ public sealed class LowLevelKeyboardHotkeyManager : IHotkeyManager
             throw new InvalidOperationException("注册全局键盘钩子失败。");
         }
 
-        _logger.Info($"热键已启用：{gesture.ToDisplayText()}");
+        _logger.Info($"热键已启用：{CurrentGesture.ToDisplayText()}");
     }
 
     public void UpdateGesture(HotkeyGesture gesture)
     {
-        CurrentGesture = gesture;
+        CurrentGesture = gesture.Normalize();
         ResetState();
-        _logger.Info($"热键已更新：{gesture.ToDisplayText()}");
+        _logger.Info($"热键已更新：{CurrentGesture.ToDisplayText()}");
     }
 
     public void Suspend()
@@ -103,17 +102,10 @@ public sealed class LowLevelKeyboardHotkeyManager : IHotkeyManager
 
             var hookStruct = Marshal.PtrToStructure<Win32.KBDLLHOOKSTRUCT>(lParam);
             var message = wParam.ToInt32();
+            var keyEvent = CreateKeyEvent(hookStruct, message);
+            _pressedState.Apply(keyEvent);
 
-            if (message is Win32.WM_KEYDOWN or Win32.WM_SYSKEYDOWN)
-            {
-                _pressedKeys.Add((int)hookStruct.vkCode);
-            }
-            else if (message is Win32.WM_KEYUP or Win32.WM_SYSKEYUP)
-            {
-                _pressedKeys.Remove((int)hookStruct.vkCode);
-            }
-
-            var nowActive = IsGestureActive();
+            var nowActive = HotkeyActivationEvaluator.IsActive(CurrentGesture.ToBinding(), _pressedState, keyEvent);
             if (nowActive && !_gestureActive)
             {
                 _gestureActive = true;
@@ -132,7 +124,7 @@ public sealed class LowLevelKeyboardHotkeyManager : IHotkeyManager
     private void ResetState(bool emitRelease = false)
     {
         var wasActive = _gestureActive;
-        _pressedKeys.Clear();
+        _pressedState.Clear();
         _gestureActive = false;
 
         if (emitRelease && wasActive)
@@ -141,27 +133,13 @@ public sealed class LowLevelKeyboardHotkeyManager : IHotkeyManager
         }
     }
 
-    private bool IsGestureActive()
+    private static HotkeyEventData CreateKeyEvent(Win32.KBDLLHOOKSTRUCT hookStruct, int message)
     {
-        var keyCode = KeyInterop.VirtualKeyFromKey(CurrentGesture.Key);
-        if (!_pressedKeys.Contains(keyCode))
-        {
-            return false;
-        }
-
-        return ModifierActive(HotkeyModifiers.Control, 0x11, 0xA2, 0xA3) &&
-               ModifierActive(HotkeyModifiers.Alt, 0x12, 0xA4, 0xA5) &&
-               ModifierActive(HotkeyModifiers.Shift, 0x10, 0xA0, 0xA1) &&
-               ModifierActive(HotkeyModifiers.Windows, 0x5B, 0x5C);
-    }
-
-    private bool ModifierActive(HotkeyModifiers modifier, params int[] virtualKeys)
-    {
-        if (!CurrentGesture.Modifiers.HasFlag(modifier))
-        {
-            return true;
-        }
-
-        return virtualKeys.Any(_pressedKeys.Contains);
+        return new HotkeyEventData(
+            unchecked((int)hookStruct.vkCode),
+            unchecked((int)hookStruct.scanCode),
+            (hookStruct.flags & Win32.LLKHF_EXTENDED) != 0,
+            message is Win32.WM_KEYDOWN or Win32.WM_SYSKEYDOWN,
+            (hookStruct.flags & Win32.LLKHF_ALTDOWN) != 0);
     }
 }
