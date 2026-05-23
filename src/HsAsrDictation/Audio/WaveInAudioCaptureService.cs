@@ -5,12 +5,16 @@ namespace HsAsrDictation.Audio;
 
 public sealed class WaveInAudioCaptureService : IAudioCaptureService
 {
-    private const int MaxDurationSeconds = 30;
+    private const int SampleRate = 16000;
+    private static readonly TimeSpan MaxDuration = TimeSpan.FromMinutes(5);
+    private static readonly int MaxSampleCount = (int)(SampleRate * MaxDuration.TotalSeconds);
     private readonly object _syncRoot = new();
     private readonly LocalLogService _logger;
     private readonly List<float> _samples = [];
     private WaveInEvent? _waveIn;
     private TaskCompletionSource? _stopCompletion;
+    private RecordedAudio _lastRecordedAudio = new(Array.Empty<float>(), TimeSpan.Zero);
+    private AudioCaptureStopReason _pendingStopReason = AudioCaptureStopReason.UserRequested;
 
     public WaveInAudioCaptureService(LocalLogService logger)
     {
@@ -20,6 +24,8 @@ public sealed class WaveInAudioCaptureService : IAudioCaptureService
     public bool IsRecording { get; private set; }
 
     public event EventHandler<AudioChunkAvailableEventArgs>? AudioChunkAvailable;
+
+    public event EventHandler<AudioCaptureStoppedEventArgs>? RecordingStopped;
 
     public IReadOnlyList<AudioDeviceInfo> GetInputDevices()
     {
@@ -48,12 +54,14 @@ public sealed class WaveInAudioCaptureService : IAudioCaptureService
 
             _samples.Clear();
             _stopCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            _lastRecordedAudio = new RecordedAudio(Array.Empty<float>(), TimeSpan.Zero);
+            _pendingStopReason = AudioCaptureStopReason.UserRequested;
             _waveIn = new WaveInEvent
             {
                 DeviceNumber = ResolveDeviceNumber(preferredDeviceName),
                 BufferMilliseconds = 40,
                 NumberOfBuffers = 3,
-                WaveFormat = new WaveFormat(16000, 16, 1)
+                WaveFormat = new WaveFormat(SampleRate, 16, 1)
             };
 
             _waveIn.DataAvailable += OnDataAvailable;
@@ -74,10 +82,11 @@ public sealed class WaveInAudioCaptureService : IAudioCaptureService
         {
             if (!IsRecording || _waveIn is null)
             {
-                return new RecordedAudio(Array.Empty<float>(), TimeSpan.Zero);
+                return _lastRecordedAudio;
             }
 
             stopCompletion = _stopCompletion;
+            _pendingStopReason = AudioCaptureStopReason.UserRequested;
             _waveIn.StopRecording();
         }
 
@@ -90,7 +99,8 @@ public sealed class WaveInAudioCaptureService : IAudioCaptureService
         lock (_syncRoot)
         {
             var copy = _samples.ToArray();
-            return new RecordedAudio(copy, TimeSpan.FromSeconds(copy.Length / 16000d));
+            _lastRecordedAudio = new RecordedAudio(copy, TimeSpan.FromSeconds(copy.Length / (double)SampleRate));
+            return _lastRecordedAudio;
         }
     }
 
@@ -122,6 +132,7 @@ public sealed class WaveInAudioCaptureService : IAudioCaptureService
     {
         float[]? chunkSamples = null;
         var samplesWritten = 0;
+        var reachedMaxDuration = false;
 
         lock (_syncRoot)
         {
@@ -129,9 +140,11 @@ public sealed class WaveInAudioCaptureService : IAudioCaptureService
 
             for (var i = 0; i < e.BytesRecorded; i += 2)
             {
-                if (_samples.Count >= 16000 * MaxDurationSeconds)
+                if (_samples.Count >= MaxSampleCount)
                 {
+                    _pendingStopReason = AudioCaptureStopReason.MaxDurationReached;
                     _waveIn?.StopRecording();
+                    reachedMaxDuration = true;
                     break;
                 }
 
@@ -140,6 +153,11 @@ public sealed class WaveInAudioCaptureService : IAudioCaptureService
                 _samples.Add(normalizedSample);
                 chunkSamples[samplesWritten++] = normalizedSample;
             }
+        }
+
+        if (reachedMaxDuration)
+        {
+            _logger.Warn($"录音达到单次上限（{MaxDuration.TotalMinutes:0} 分钟），将自动结束当前听写。");
         }
 
         if (chunkSamples is not null && samplesWritten > 0)
@@ -155,8 +173,16 @@ public sealed class WaveInAudioCaptureService : IAudioCaptureService
 
     private void OnRecordingStopped(object? sender, StoppedEventArgs e)
     {
+        AudioCaptureStoppedEventArgs? stoppedEventArgs;
+        EventHandler<AudioCaptureStoppedEventArgs>? recordingStopped;
+
         lock (_syncRoot)
         {
+            var copy = _samples.ToArray();
+            _lastRecordedAudio = new RecordedAudio(copy, TimeSpan.FromSeconds(copy.Length / (double)SampleRate));
+            var stopReason = e.Exception is null ? _pendingStopReason : AudioCaptureStopReason.Faulted;
+            _pendingStopReason = AudioCaptureStopReason.UserRequested;
+
             if (e.Exception is not null)
             {
                 _logger.Error("录音停止时发生异常。", e.Exception);
@@ -169,8 +195,12 @@ public sealed class WaveInAudioCaptureService : IAudioCaptureService
             }
 
             IsRecording = false;
+            stoppedEventArgs = new AudioCaptureStoppedEventArgs(_lastRecordedAudio, stopReason, e.Exception);
+            recordingStopped = RecordingStopped;
             CleanupWaveIn();
         }
+
+        recordingStopped?.Invoke(this, stoppedEventArgs);
     }
 
     private void CleanupWaveIn()

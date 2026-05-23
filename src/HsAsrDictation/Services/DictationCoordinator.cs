@@ -225,6 +225,7 @@ public sealed class DictationCoordinator
             ResetStreamingSessionState();
             _captureContext = _foregroundContextService.Capture();
 
+            _audioCaptureService.RecordingStopped += OnAudioCaptureStopped;
             await InitializeStreamingSessionIfNeededAsync();
             _audioCaptureService.AudioChunkAvailable += OnAudioChunkAvailable;
             await _audioCaptureService.StartAsync(_settingsService.Current.PreferredInputDeviceName);
@@ -235,6 +236,7 @@ public sealed class DictationCoordinator
             _logger.Error("开始录音失败。", ex);
             _notificationService.Error("HsAsrDictation", $"录音启动失败：{ex.Message}");
             _audioCaptureService.AudioChunkAvailable -= OnAudioChunkAvailable;
+            _audioCaptureService.RecordingStopped -= OnAudioCaptureStopped;
             if (_streamingChannel is not null)
             {
                 _streamingChannel.Writer.TryComplete();
@@ -370,6 +372,7 @@ public sealed class DictationCoordinator
         finally
         {
             _audioCaptureService.AudioChunkAvailable -= OnAudioChunkAvailable;
+            _audioCaptureService.RecordingStopped -= OnAudioCaptureStopped;
             CleanupStreamingResources();
             _captureContext = null;
             ResetRecordingControlState();
@@ -458,6 +461,29 @@ public sealed class DictationCoordinator
         {
             await _streamingLoopTask;
         }
+    }
+
+    private void OnAudioCaptureStopped(object? sender, AudioCaptureStoppedEventArgs e)
+    {
+        if (_state != DictationState.Recording || _finalizationInProgress)
+        {
+            return;
+        }
+
+        if (e.Reason == AudioCaptureStopReason.MaxDurationReached)
+        {
+            _notificationService.Warn(
+                "HsAsrDictation",
+                "已达到单次录音时长上限，当前内容会自动结束并继续写回。");
+        }
+        else if (e.Reason == AudioCaptureStopReason.Faulted)
+        {
+            _notificationService.Warn(
+                "HsAsrDictation",
+                "录音被意外中断，将尝试保留已录到的内容。");
+        }
+
+        _ = FinalizeRecordingAsync();
     }
 
     private async Task<string> DecodeOfflineAsync(RecordedAudio audio)

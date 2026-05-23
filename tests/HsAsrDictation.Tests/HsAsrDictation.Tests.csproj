@@ -22,6 +22,8 @@
     <Compile Include="..\..\src\HsAsrDictation\Models\AsrModelKind.cs" Link="Source\Models\AsrModelKind.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Models\IModelProvisioningService.cs" Link="Source\Models\IModelProvisioningService.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Models\ModelReadyResult.cs" Link="Source\Models\ModelReadyResult.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Audio\AudioCaptureStopReason.cs" Link="Source\AudioCaptureStopReason.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Audio\AudioCaptureStoppedEventArgs.cs" Link="Source\AudioCaptureStoppedEventArgs.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Audio\AudioChunkAvailableEventArgs.cs" Link="Source\AudioChunkAvailableEventArgs.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Audio\AudioDeviceInfo.cs" Link="Source\AudioDeviceInfo.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Audio\IAudioCaptureService.cs" Link="Source\IAudioCaptureService.cs" />

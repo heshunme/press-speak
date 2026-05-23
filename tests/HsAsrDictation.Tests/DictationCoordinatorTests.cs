@@ -92,6 +92,24 @@ public sealed class DictationCoordinatorTests
         Assert.Equal(new[] { "尾字保留" }, harness.TextInsertion.InsertedTexts);
     }
 
+    [Fact]
+    public async Task RecordingStoppedAtMaxDuration_AutoFinalizesAndPreservesCapturedAudio()
+    {
+        using var harness = new CoordinatorHarness(TimeSpan.FromMilliseconds(120));
+
+        await harness.Coordinator.BeginRecordingAsync();
+        harness.AudioCapture.TriggerRecordingStopped(AudioCaptureStopReason.MaxDurationReached);
+
+        await harness.AudioCapture.StopCalled.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        await harness.TextInsertion.InsertCalled.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+        Assert.Equal(1, harness.AudioCapture.StopCallCount);
+        Assert.Equal(new[] { "尾字保留" }, harness.TextInsertion.InsertedTexts);
+        Assert.Contains(
+            harness.NotificationService.WarnMessages,
+            message => message.Contains("已达到单次录音时长上限", StringComparison.Ordinal));
+    }
+
     private sealed class CoordinatorHarness : IDisposable
     {
         private readonly string _tempDirectory;
@@ -164,7 +182,7 @@ public sealed class DictationCoordinatorTests
 
         private FakeForegroundContextService ForegroundContextService { get; }
 
-        private FakeNotificationService NotificationService { get; }
+        public FakeNotificationService NotificationService { get; }
 
         public void Dispose()
         {
@@ -180,6 +198,7 @@ public sealed class DictationCoordinatorTests
     private sealed class FakeAudioCaptureService : IAudioCaptureService
     {
         private static readonly float[] Samples = Enumerable.Repeat(0.2f, 3200).ToArray();
+        private RecordedAudio _lastAudio = new(Samples, TimeSpan.FromMilliseconds(200));
 
         public int StopCallCount { get; private set; }
 
@@ -190,11 +209,14 @@ public sealed class DictationCoordinatorTests
 
         public event EventHandler<AudioChunkAvailableEventArgs>? AudioChunkAvailable;
 
+        public event EventHandler<AudioCaptureStoppedEventArgs>? RecordingStopped;
+
         public IReadOnlyList<AudioDeviceInfo> GetInputDevices() => [];
 
         public Task StartAsync(string? preferredDeviceName, CancellationToken ct = default)
         {
             IsRecording = true;
+            _lastAudio = new RecordedAudio(Samples, TimeSpan.FromMilliseconds(200));
             _ = AudioChunkAvailable;
             return Task.CompletedTask;
         }
@@ -204,7 +226,13 @@ public sealed class DictationCoordinatorTests
             StopCallCount++;
             IsRecording = false;
             StopCalled.TrySetResult();
-            return Task.FromResult(new RecordedAudio(Samples, TimeSpan.FromMilliseconds(200)));
+            return Task.FromResult(_lastAudio);
+        }
+
+        public void TriggerRecordingStopped(AudioCaptureStopReason reason)
+        {
+            IsRecording = false;
+            RecordingStopped?.Invoke(this, new AudioCaptureStoppedEventArgs(_lastAudio, reason));
         }
 
         public void Dispose()
@@ -353,12 +381,15 @@ public sealed class DictationCoordinatorTests
 
     private sealed class FakeNotificationService : INotificationService
     {
+        public Collection<string> WarnMessages { get; } = [];
+
         public void Info(string title, string message)
         {
         }
 
         public void Warn(string title, string message)
         {
+            WarnMessages.Add(message);
         }
 
         public void Error(string title, string message)
