@@ -35,8 +35,14 @@ public sealed class SettingsService
         try
         {
             var json = File.ReadAllText(_settingsPath);
-            Current = (JsonSerializer.Deserialize<AppSettings>(json, _serializerOptions) ?? AppSettings.CreateDefault())
-                .Normalize();
+            var loadedSettings = JsonSerializer.Deserialize<AppSettings>(json, _serializerOptions) ?? AppSettings.CreateDefault();
+            var hotkeyWasInvalid = loadedSettings.Hotkey is null || !loadedSettings.Hotkey.IsValid;
+            Current = loadedSettings.Normalize();
+
+            if (hotkeyWasInvalid)
+            {
+                _logger.Warn("热键配置无效或已过时，已回退为默认热键 Right Alt。");
+            }
         }
         catch (Exception ex)
         {

@@ -38,13 +38,16 @@
     <Compile Include="..\..\src\HsAsrDictation\Asr\PunctuationRuntimeOptions.cs" Link="Source\Asr\PunctuationRuntimeOptions.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Asr\IPunctuationService.cs" Link="Source\Asr\IPunctuationService.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Asr\SherpaOfflinePunctuationService.cs" Link="Source\Asr\SherpaOfflinePunctuationService.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyModifiers.cs" Link="Source\Hotkeys\HotkeyModifiers.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Settings\AppSettings.cs" Link="Source\Settings\AppSettings.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Settings\RecognitionMode.cs" Link="Source\Settings\RecognitionMode.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyEventData.cs" Link="Source\Hotkeys\HotkeyEventData.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyBindingSnapshot.cs" Link="Source\Hotkeys\HotkeyBindingSnapshot.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyEventTranslator.cs" Link="Source\Hotkeys\HotkeyEventTranslator.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyPhysicalKey.cs" Link="Source\Hotkeys\HotkeyPhysicalKey.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyPhysicalKeySet.cs" Link="Source\Hotkeys\HotkeyPhysicalKeySet.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyGesture.cs" Link="Source\Hotkeys\HotkeyGesture.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyPressedState.cs" Link="Source\Hotkeys\HotkeyPressedState.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyCaptureEvaluator.cs" Link="Source\Hotkeys\HotkeyCaptureEvaluator.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyCaptureParser.cs" Link="Source\Hotkeys\HotkeyCaptureParser.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyActivationEvaluator.cs" Link="Source\Hotkeys\HotkeyActivationEvaluator.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyDisplayPresentation.cs" Link="Source\Hotkeys\HotkeyDisplayPresentation.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Overlay\IStatusOverlayService.cs" Link="Source\IStatusOverlayService.cs" />
@@ -68,7 +71,6 @@
     <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Rules\EnglishAcronymJoinRule.cs" Link="Source\PostProcessing\Rules\EnglishAcronymJoinRule.cs" />
     <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Validation\RegexSafetyValidator.cs" Link="Source\PostProcessing\Validation\RegexSafetyValidator.cs" />
     <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Validation\RuleValidator.cs" Link="Source\PostProcessing\Validation\RuleValidator.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Settings\RecognitionMode.cs" Link="Source\Settings\RecognitionMode.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Services\DictationStatus.cs" Link="Source\Services\DictationStatus.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Services\DictationState.cs" Link="Source\DictationState.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Services\ModelResidencyManager.cs" Link="Source\Services\ModelResidencyManager.cs" />

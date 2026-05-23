@@ -8,9 +8,9 @@ using HsAsrDictation.Settings;
 
 namespace HsAsrDictation.Views;
 
-public sealed class SettingsWindowViewModel : INotifyPropertyChanged
-{
-    private const string ActiveHotkeyCapturePrompt = "请按下组合键，Esc 取消。";
+    public sealed class SettingsWindowViewModel : INotifyPropertyChanged
+    {
+    private const string ActiveHotkeyCapturePrompt = "请按下要作为热键的按键或组合，松开全部按键后完成录入，Esc 取消。";
 
     private readonly HotkeyGesture _runtimeHotkey;
     private HotkeyGesture _candidateHotkey;
@@ -151,9 +151,9 @@ public sealed class SettingsWindowViewModel : INotifyPropertyChanged
             CandidateHotkey.ToDisplayText());
     }
 
-    public void ShowPressedModifiers(HotkeyModifiers modifiers)
+    public void ShowCaptureProgress(string keyText)
     {
-        HotkeyCapturePrompt = $"已按下 {HotkeyCaptureEvaluator.FormatModifierText(modifiers)}，继续按主键。";
+        HotkeyCapturePrompt = $"已按下 {keyText}，松开全部按键后完成录入。";
     }
 
     public void ShowCaptureGuidance(string prompt)

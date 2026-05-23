@@ -8,7 +8,7 @@ public static class HotkeyDisplayPresentation
             : $"当前热键：{currentHotkeyText}";
 
     public static string BuildIdlePrompt(string currentHotkeyText) =>
-        $"当前启用热键：{currentHotkeyText}。点击“开始录入”，然后按下要作为热键的组合键。";
+        $"当前启用热键：{currentHotkeyText}。点击“开始录入”，然后按下要作为热键的按键或组合；松开全部按键后完成录入。";
 
     public static string BuildPendingPrompt(string currentHotkeyText, string candidateHotkeyText) =>
         $"当前启用热键：{currentHotkeyText}。待保存热键：{candidateHotkeyText}，点击保存后生效。";

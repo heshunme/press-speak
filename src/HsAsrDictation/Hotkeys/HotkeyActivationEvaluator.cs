@@ -2,52 +2,9 @@ namespace HsAsrDictation.Hotkeys;
 
 public static class HotkeyActivationEvaluator
 {
-    public static bool IsActive(HotkeyBindingSnapshot binding, HotkeyPressedState pressedState, HotkeyEventData currentEvent)
+    public static bool IsActive(HotkeyGesture gesture, IEnumerable<HotkeyPhysicalKey> pressedKeys)
     {
-        if (!PrimaryKeyMatches(binding, pressedState, currentEvent))
-        {
-            return false;
-        }
-
-        return ModifierMatches(binding.Modifiers, HotkeyModifiers.Control, pressedState, currentEvent) &&
-               ModifierMatches(binding.Modifiers, HotkeyModifiers.Alt, pressedState, currentEvent) &&
-               ModifierMatches(binding.Modifiers, HotkeyModifiers.Shift, pressedState, currentEvent) &&
-               ModifierMatches(binding.Modifiers, HotkeyModifiers.Windows, pressedState, currentEvent);
-    }
-
-    private static bool PrimaryKeyMatches(HotkeyBindingSnapshot binding, HotkeyPressedState pressedState, HotkeyEventData currentEvent)
-    {
-        var virtualKeyMatches = binding.VirtualKey > 0 &&
-                                (pressedState.IsVirtualKeyPressed(binding.VirtualKey) ||
-                                 (currentEvent.IsKeyDown &&
-                                  !currentEvent.IsModifier &&
-                                  currentEvent.VirtualKey == binding.VirtualKey));
-
-        if (binding.PrimaryScanCode > 0)
-        {
-            var scanCodeMatches = pressedState.IsPhysicalKeyPressed(binding.PrimaryScanCode, binding.IsExtendedKey) ||
-                                  (currentEvent.IsKeyDown &&
-                                   !currentEvent.IsModifier &&
-                                   currentEvent.ScanCode == binding.PrimaryScanCode &&
-                                   currentEvent.IsExtendedKey == binding.IsExtendedKey);
-
-            return scanCodeMatches || virtualKeyMatches;
-        }
-
-        return virtualKeyMatches;
-    }
-
-    private static bool ModifierMatches(
-        HotkeyModifiers requiredModifiers,
-        HotkeyModifiers modifier,
-        HotkeyPressedState pressedState,
-        HotkeyEventData currentEvent)
-    {
-        if (!requiredModifiers.HasFlag(modifier))
-        {
-            return true;
-        }
-
-        return pressedState.IsModifierPressed(modifier, includeAltContext: modifier == HotkeyModifiers.Alt && currentEvent.IsAltContext);
+        var normalizedGesture = gesture.Normalize();
+        return HotkeyPhysicalKeySet.SetEquals(normalizedGesture.Keys, pressedKeys);
     }
 }

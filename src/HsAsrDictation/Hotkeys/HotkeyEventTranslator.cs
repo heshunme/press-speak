@@ -11,7 +11,8 @@ internal static class HotkeyEventTranslator
             unchecked((int)hookStruct.scanCode),
             (hookStruct.flags & Win32.LLKHF_EXTENDED) != 0,
             IsKeyDownMessage(message),
-            (hookStruct.flags & Win32.LLKHF_ALTDOWN) != 0);
+            (hookStruct.flags & Win32.LLKHF_ALTDOWN) != 0,
+            (hookStruct.flags & Win32.LLKHF_INJECTED) != 0);
     }
 
     public static HotkeyEventData FromWindowMessage(int message, IntPtr wParam, IntPtr lParam)
@@ -22,7 +23,8 @@ internal static class HotkeyEventTranslator
             unchecked((int)((lParamValue >> 16) & 0xFF)),
             ((lParamValue >> 24) & 0x01) != 0,
             IsKeyDownMessage(message),
-            message is Win32.WM_SYSKEYDOWN or Win32.WM_SYSKEYUP);
+            message is Win32.WM_SYSKEYDOWN or Win32.WM_SYSKEYUP,
+            false);
     }
 
     private static bool IsKeyDownMessage(int message) =>

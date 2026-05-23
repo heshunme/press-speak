@@ -5,18 +5,9 @@ public readonly record struct HotkeyEventData(
     int ScanCode,
     bool IsExtendedKey,
     bool IsKeyDown,
-    bool IsAltContext)
+    bool IsAltContext,
+    bool IsInjected)
 {
-    public bool IsModifier =>
-        VirtualKey is 0x10 or
-            0x11 or
-            0x12 or
-            0x5B or
-            0x5C or
-            0xA0 or
-            0xA1 or
-            0xA2 or
-            0xA3 or
-            0xA4 or
-            0xA5;
+    public bool TryGetPhysicalKey(out HotkeyPhysicalKey key) =>
+        HotkeyPhysicalKey.TryCreate(this, out key);
 }

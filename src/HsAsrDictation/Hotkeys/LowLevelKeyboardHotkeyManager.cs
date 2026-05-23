@@ -1,24 +1,21 @@
-using System.Diagnostics;
-using System.Runtime.InteropServices;
-using HsAsrDictation.Interop;
 using HsAsrDictation.Logging;
 
 namespace HsAsrDictation.Hotkeys;
 
 public sealed class LowLevelKeyboardHotkeyManager : IHotkeyManager
 {
+    private readonly LowLevelKeyboardEventSource _eventSource;
     private readonly LocalLogService _logger;
     private readonly HotkeyPressedState _pressedState = new();
-    private readonly Win32.LowLevelKeyboardProc _hookCallback;
-    private IntPtr _hookHandle = IntPtr.Zero;
     private bool _gestureActive;
     private bool _isSuspended;
 
-    public LowLevelKeyboardHotkeyManager(LocalLogService logger)
+    public LowLevelKeyboardHotkeyManager(LowLevelKeyboardEventSource eventSource, LocalLogService logger)
     {
+        _eventSource = eventSource;
         _logger = logger;
-        _hookCallback = HookCallback;
-        CurrentGesture = new HotkeyGesture();
+        _eventSource.KeyEvent += OnKeyEvent;
+        CurrentGesture = HotkeyGesture.CreateDefault();
     }
 
     public event EventHandler? Pressed;
@@ -30,24 +27,7 @@ public sealed class LowLevelKeyboardHotkeyManager : IHotkeyManager
     public void Start(HotkeyGesture gesture)
     {
         CurrentGesture = gesture.Normalize();
-
-        if (_hookHandle != IntPtr.Zero)
-        {
-            return;
-        }
-
-        using var currentProcess = Process.GetCurrentProcess();
-        using var currentModule = currentProcess.MainModule
-            ?? throw new InvalidOperationException("无法获取当前进程模块。");
-
-        var moduleHandle = Win32.GetModuleHandle(currentModule.ModuleName);
-        _hookHandle = Win32.SetWindowsHookEx(Win32.WH_KEYBOARD_LL, _hookCallback, moduleHandle, 0);
-
-        if (_hookHandle == IntPtr.Zero)
-        {
-            throw new InvalidOperationException("注册全局键盘钩子失败。");
-        }
-
+        _eventSource.Start();
         _logger.Info($"热键已启用：{CurrentGesture.ToDisplayText()}");
     }
 
@@ -84,43 +64,31 @@ public sealed class LowLevelKeyboardHotkeyManager : IHotkeyManager
 
     public void Dispose()
     {
-        if (_hookHandle != IntPtr.Zero)
-        {
-            Win32.UnhookWindowsHookEx(_hookHandle);
-            _hookHandle = IntPtr.Zero;
-        }
+        _eventSource.KeyEvent -= OnKeyEvent;
     }
 
-    private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
+    private void OnKeyEvent(object? sender, HotkeyEventData keyEvent)
     {
-        if (nCode >= 0)
+        if (_isSuspended)
         {
-            if (_isSuspended)
-            {
-                return Win32.CallNextHookEx(_hookHandle, nCode, wParam, lParam);
-            }
-
-            var hookStruct = Marshal.PtrToStructure<Win32.KBDLLHOOKSTRUCT>(lParam);
-            var message = wParam.ToInt32();
-            var keyEvent = HotkeyEventTranslator.FromHook(hookStruct, message);
-            _pressedState.Apply(keyEvent);
-
-            var nowActive = HotkeyActivationEvaluator.IsActive(CurrentGesture.ToBinding(), _pressedState, keyEvent);
-            if (nowActive && !_gestureActive)
-            {
-                _gestureActive = true;
-                _logger.Info($"热键按下已命中：{FormatEventData(keyEvent)} | binding={CurrentGesture.ToDisplayText()}");
-                Pressed?.Invoke(this, EventArgs.Empty);
-            }
-            else if (!nowActive && _gestureActive)
-            {
-                _gestureActive = false;
-                _logger.Info($"热键已释放：{FormatEventData(keyEvent)} | binding={CurrentGesture.ToDisplayText()}");
-                Released?.Invoke(this, EventArgs.Empty);
-            }
+            return;
         }
 
-        return Win32.CallNextHookEx(_hookHandle, nCode, wParam, lParam);
+        _pressedState.Apply(keyEvent);
+
+        var nowActive = HotkeyActivationEvaluator.IsActive(CurrentGesture, _pressedState.PressedKeys);
+        if (nowActive && !_gestureActive)
+        {
+            _gestureActive = true;
+            _logger.Info($"热键按下已命中：{FormatEventData(keyEvent)} | binding={CurrentGesture.ToDisplayText()}");
+            Pressed?.Invoke(this, EventArgs.Empty);
+        }
+        else if (!nowActive && _gestureActive)
+        {
+            _gestureActive = false;
+            _logger.Info($"热键已释放：{FormatEventData(keyEvent)} | binding={CurrentGesture.ToDisplayText()}");
+            Released?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     private void ResetState(bool emitRelease = false)
@@ -136,5 +104,5 @@ public sealed class LowLevelKeyboardHotkeyManager : IHotkeyManager
     }
 
     private static string FormatEventData(HotkeyEventData keyEvent) =>
-        $"vk=0x{keyEvent.VirtualKey:X2}, scan=0x{keyEvent.ScanCode:X2}, extended={keyEvent.IsExtendedKey}, altContext={keyEvent.IsAltContext}, keyDown={keyEvent.IsKeyDown}";
+        $"vk=0x{keyEvent.VirtualKey:X2}, scan=0x{keyEvent.ScanCode:X2}, extended={keyEvent.IsExtendedKey}, altContext={keyEvent.IsAltContext}, injected={keyEvent.IsInjected}, keyDown={keyEvent.IsKeyDown}";
 }

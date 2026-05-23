@@ -5,136 +5,79 @@ namespace HsAsrDictation.Tests;
 
 public sealed class HotkeyActivationEvaluatorTests
 {
-    private static readonly HotkeyBindingSnapshot AltOem3Binding = new(
-        HotkeyModifiers.Alt,
-        0xC0,
-        0x29,
-        false);
+    private static readonly HotkeyPhysicalKey RightAltKey = new(0xA5, 0x38, true);
+    private static readonly HotkeyPhysicalKey LeftAltKey = new(0xA4, 0x38, false);
+    private static readonly HotkeyPhysicalKey LeftControlKey = new(0xA2, 0x1D, false);
+    private static readonly HotkeyPhysicalKey KKey = new(0x4B, 0x25, false);
 
     [Fact]
-    public void IsActive_ReturnsFalse_WhenOnlyPrimaryKeyIsPressed()
+    public void IsActive_ReturnsTrue_WhenPressedKeysExactlyMatchBinding()
     {
         var state = new HotkeyPressedState();
-        var primaryDown = new HotkeyEventData(0xC0, 0x29, false, true, false);
+        state.Apply(CreateKeyEvent(RightAltKey, isKeyDown: true));
+        var gesture = new HotkeyGesture
+        {
+            Keys = [RightAltKey]
+        };
 
-        state.Apply(primaryDown);
-
-        Assert.False(HotkeyActivationEvaluator.IsActive(AltOem3Binding, state, primaryDown));
+        Assert.True(HotkeyActivationEvaluator.IsActive(gesture, state.PressedKeys));
     }
 
     [Fact]
-    public void IsActive_ReturnsTrue_WhenAltAndPrimaryArePressed()
+    public void IsActive_ReturnsFalse_WhenLeftAltIsPressedForRightAltBinding()
     {
         var state = new HotkeyPressedState();
-        state.Apply(new HotkeyEventData(0xA4, 0x38, false, true, false));
-        var primaryDown = new HotkeyEventData(0xC0, 0x29, false, true, true);
+        state.Apply(CreateKeyEvent(LeftAltKey, isKeyDown: true));
+        var gesture = new HotkeyGesture
+        {
+            Keys = [RightAltKey]
+        };
 
-        state.Apply(primaryDown);
-
-        Assert.True(HotkeyActivationEvaluator.IsActive(AltOem3Binding, state, primaryDown));
+        Assert.False(HotkeyActivationEvaluator.IsActive(gesture, state.PressedKeys));
     }
 
     [Fact]
-    public void IsActive_ReturnsFalse_AfterPrimaryKeyIsReleased()
+    public void IsActive_ReturnsFalse_WhenExtraPhysicalKeyIsPressed()
     {
         var state = new HotkeyPressedState();
-        state.Apply(new HotkeyEventData(0xA4, 0x38, false, true, false));
-        state.Apply(new HotkeyEventData(0xC0, 0x29, false, true, true));
-        var primaryUp = new HotkeyEventData(0xC0, 0x29, false, false, true);
+        state.Apply(CreateKeyEvent(RightAltKey, isKeyDown: true));
+        state.Apply(CreateKeyEvent(KKey, isKeyDown: true));
+        var gesture = new HotkeyGesture
+        {
+            Keys = [RightAltKey]
+        };
 
-        state.Apply(primaryUp);
-
-        Assert.False(HotkeyActivationEvaluator.IsActive(AltOem3Binding, state, primaryUp));
+        Assert.False(HotkeyActivationEvaluator.IsActive(gesture, state.PressedKeys));
     }
 
     [Fact]
-    public void IsActive_ReturnsFalse_AfterModifierIsReleased()
+    public void IsActive_MatchesCombinationRegardlessOfPressOrder()
     {
         var state = new HotkeyPressedState();
-        state.Apply(new HotkeyEventData(0xA4, 0x38, false, true, false));
-        state.Apply(new HotkeyEventData(0xC0, 0x29, false, true, true));
-        var altUp = new HotkeyEventData(0xA4, 0x38, false, false, false);
+        state.Apply(CreateKeyEvent(KKey, isKeyDown: true));
+        state.Apply(CreateKeyEvent(RightAltKey, isKeyDown: true));
+        var gesture = new HotkeyGesture
+        {
+            Keys = [RightAltKey, KKey]
+        };
 
-        state.Apply(altUp);
-
-        Assert.False(HotkeyActivationEvaluator.IsActive(AltOem3Binding, state, altUp));
+        Assert.True(HotkeyActivationEvaluator.IsActive(gesture, state.PressedKeys));
     }
 
     [Fact]
-    public void IsActive_Treats_RightAltAsAltModifier()
+    public void IsActive_IgnoresAltGrCompanionLeftControl()
     {
         var state = new HotkeyPressedState();
-        state.Apply(new HotkeyEventData(0xA5, 0x38, true, true, false));
-        var primaryDown = new HotkeyEventData(0xC0, 0x29, false, true, true);
+        state.Apply(CreateKeyEvent(LeftControlKey, isKeyDown: true));
+        state.Apply(CreateKeyEvent(RightAltKey, isKeyDown: true));
+        var gesture = new HotkeyGesture
+        {
+            Keys = [RightAltKey]
+        };
 
-        state.Apply(primaryDown);
-
-        Assert.True(HotkeyActivationEvaluator.IsActive(AltOem3Binding, state, primaryDown));
+        Assert.True(HotkeyActivationEvaluator.IsActive(gesture, state.PressedKeys));
     }
 
-    [Fact]
-    public void IsActive_FallsBackToVirtualKey_WhenScanCodeDiffers()
-    {
-        var state = new HotkeyPressedState();
-        state.Apply(new HotkeyEventData(0xA4, 0x38, false, true, false));
-        var primaryDown = new HotkeyEventData(0xC0, 0x70, false, true, true);
-
-        state.Apply(primaryDown);
-
-        Assert.True(HotkeyActivationEvaluator.IsActive(AltOem3Binding, state, primaryDown));
-    }
-
-    [Fact]
-    public void IsActive_ReturnsFalse_WhenVirtualKeyFallbackKeyIsReleased()
-    {
-        var state = new HotkeyPressedState();
-        state.Apply(new HotkeyEventData(0xA4, 0x38, false, true, false));
-        state.Apply(new HotkeyEventData(0xC0, 0x70, false, true, true));
-        var primaryUp = new HotkeyEventData(0xC0, 0x70, false, false, true);
-
-        state.Apply(primaryUp);
-
-        Assert.False(HotkeyActivationEvaluator.IsActive(AltOem3Binding, state, primaryUp));
-    }
-
-    [Fact]
-    public void IsActive_MatchesExtendedKeyBinding()
-    {
-        var binding = new HotkeyBindingSnapshot(
-            HotkeyModifiers.Control | HotkeyModifiers.Shift,
-            0x2E,
-            0x53,
-            true);
-        var state = new HotkeyPressedState();
-        state.Apply(new HotkeyEventData(0xA2, 0x1D, false, true, false));
-        state.Apply(new HotkeyEventData(0xA0, 0x2A, false, true, false));
-        var deleteDown = new HotkeyEventData(0x2E, 0x53, true, true, false);
-
-        state.Apply(deleteDown);
-
-        Assert.True(HotkeyActivationEvaluator.IsActive(binding, state, deleteDown));
-    }
-
-    [Fact]
-    public void SetPressedModifiers_InitializesPressedModifiers()
-    {
-        var state = new HotkeyPressedState();
-
-        state.SetPressedModifiers(HotkeyModifiers.Control | HotkeyModifiers.Shift | HotkeyModifiers.Windows);
-
-        Assert.Equal(
-            HotkeyModifiers.Control | HotkeyModifiers.Shift | HotkeyModifiers.Windows,
-            state.GetPressedModifiers(includeAltContext: false));
-    }
-
-    [Fact]
-    public void SetPressedModifiers_AllowsModifierReleaseToClearState()
-    {
-        var state = new HotkeyPressedState();
-        state.SetPressedModifiers(HotkeyModifiers.Control);
-
-        state.Apply(new HotkeyEventData(0xA2, 0x1D, false, false, false));
-
-        Assert.Equal(HotkeyModifiers.None, state.GetPressedModifiers(includeAltContext: false));
-    }
+    private static HotkeyEventData CreateKeyEvent(HotkeyPhysicalKey key, bool isKeyDown) =>
+        new(key.VirtualKey, key.ScanCode, key.IsExtendedKey, isKeyDown, false, false);
 }

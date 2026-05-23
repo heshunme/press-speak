@@ -6,7 +6,7 @@ namespace HsAsrDictation.Settings;
 
 public sealed class AppSettings
 {
-    public HotkeyGesture Hotkey { get; init; } = new();
+    public HotkeyGesture Hotkey { get; init; } = HotkeyGesture.CreateDefault();
 
     public string? PreferredInputDeviceName { get; init; }
 
@@ -44,7 +44,7 @@ public sealed class AppSettings
 
         return new AppSettings
         {
-            Hotkey = (Hotkey ?? new HotkeyGesture()).Normalize(),
+            Hotkey = (Hotkey is not null && Hotkey.IsValid ? Hotkey : HotkeyGesture.CreateDefault()).Normalize(),
             PreferredInputDeviceName = PreferredInputDeviceName,
             ModelRootPath = modelRootPath,
             OfflineModelRootPath = offlineModelRootPath,
@@ -58,5 +58,8 @@ public sealed class AppSettings
         };
     }
 
-    public static AppSettings CreateDefault() => new();
+    public static AppSettings CreateDefault() => new()
+    {
+        Hotkey = HotkeyGesture.CreateDefault()
+    };
 }

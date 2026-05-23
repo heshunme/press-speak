@@ -22,6 +22,7 @@ public partial class App : System.Windows.Application
     private LocalLogService? _logger;
     private SettingsService? _settingsService;
     private NotificationService? _notificationService;
+    private LowLevelKeyboardEventSource? _keyboardEventSource;
     private IHotkeyManager? _hotkeyManager;
     private IAudioCaptureService? _audioCaptureService;
     private IModelProvisioningService? _modelProvisioningService;
@@ -49,7 +50,8 @@ public partial class App : System.Windows.Application
         _settingsService.Load();
 
         _notificationService = new NotificationService();
-        _hotkeyManager = new LowLevelKeyboardHotkeyManager(_logger);
+        _keyboardEventSource = new LowLevelKeyboardEventSource(_logger);
+        _hotkeyManager = new LowLevelKeyboardHotkeyManager(_keyboardEventSource, _logger);
         _audioCaptureService = new WaveInAudioCaptureService(_logger);
         _modelProvisioningService = new ModelProvisioningService(_settingsService, _logger);
         _punctuationModelProvisioningService = new PunctuationModelProvisioningService(_logger);
@@ -114,6 +116,7 @@ public partial class App : System.Windows.Application
         }
 
         _hotkeyManager?.Dispose();
+        _keyboardEventSource?.Dispose();
         _audioCaptureService?.Dispose();
         _asrEngine?.Dispose();
         _streamingAsrEngine?.Dispose();
@@ -128,6 +131,7 @@ public partial class App : System.Windows.Application
     {
         if (_settingsService is null ||
             _logger is null ||
+            _keyboardEventSource is null ||
             _audioCaptureService is null ||
             _hotkeyManager is null ||
             _coordinator is null ||
@@ -156,6 +160,7 @@ public partial class App : System.Windows.Application
                 _settingsService.Current,
                 _audioCaptureService.GetInputDevices(),
                 _hotkeyManager,
+                _keyboardEventSource,
                 _logger,
                 _postProcessingRuleRepository,
                 _postProcessingService);

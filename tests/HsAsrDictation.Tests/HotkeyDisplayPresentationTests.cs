@@ -26,7 +26,7 @@ public sealed class HotkeyDisplayPresentationTests
     {
         var prompt = HotkeyDisplayPresentation.BuildIdlePrompt("Ctrl + Alt + Space");
 
-        Assert.Equal("当前启用热键：Ctrl + Alt + Space。点击“开始录入”，然后按下要作为热键的组合键。", prompt);
+        Assert.Equal("当前启用热键：Ctrl + Alt + Space。点击“开始录入”，然后按下要作为热键的按键或组合；松开全部按键后完成录入。", prompt);
     }
 
     [Fact]
