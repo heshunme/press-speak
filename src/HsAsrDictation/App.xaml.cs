@@ -93,7 +93,7 @@ public partial class App : System.Windows.Application
             });
 
         _hotkeyManager.Pressed += async (_, _) => await _coordinator.BeginRecordingAsync();
-        _hotkeyManager.Released += async (_, _) => await _coordinator.FinalizeRecordingAsync();
+        _hotkeyManager.Released += async (_, _) => await _coordinator.FinalizeRecordingAfterHotkeyReleaseAsync();
         _hotkeyManager.Start(_settingsService.Current.Hotkey);
 
         _ = _coordinator.EnsureModelReadyAsync(downloadIfMissing: _settingsService.Current.AutoDownloadModel);

@@ -2,7 +2,7 @@ using System.Windows.Forms;
 
 namespace HsAsrDictation.Notifications;
 
-public sealed class NotificationService
+public sealed class NotificationService : INotificationService
 {
     public event EventHandler<NotificationMessage>? NotificationRaised;
 

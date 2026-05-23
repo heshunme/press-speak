@@ -6,7 +6,7 @@ using HsAsrDictation.Logging;
 
 namespace HsAsrDictation.Foreground;
 
-public sealed class ForegroundContextService
+public sealed class ForegroundContextService : IForegroundContextService
 {
     private readonly LocalLogService _logger;
 

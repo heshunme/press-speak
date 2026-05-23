@@ -16,6 +16,7 @@ namespace HsAsrDictation.Services;
 
 public sealed class DictationCoordinator
 {
+    private static readonly TimeSpan DefaultHotkeyReleaseTailDuration = TimeSpan.FromSeconds(1);
     private readonly SettingsService _settingsService;
     private readonly IAudioCaptureService _audioCaptureService;
     private readonly IModelProvisioningService _modelProvisioningService;
@@ -25,11 +26,13 @@ public sealed class DictationCoordinator
     private readonly IPunctuationService _punctuationService;
     private readonly IPostProcessingService _postProcessingService;
     private readonly ModelResidencyManager _modelResidencyManager;
-    private readonly ForegroundContextService _foregroundContextService;
+    private readonly IForegroundContextService _foregroundContextService;
     private readonly ITextInsertionService _textInsertionService;
-    private readonly NotificationService _notificationService;
+    private readonly INotificationService _notificationService;
     private readonly LocalLogService _logger;
     private readonly SemaphoreSlim _sessionLock = new(1, 1);
+    private readonly object _recordingControlSync = new();
+    private readonly TimeSpan _hotkeyReleaseTailDuration;
 
     private DictationState _state = DictationState.Idle;
     private ForegroundContext? _captureContext;
@@ -39,6 +42,8 @@ public sealed class DictationCoordinator
     private string _streamingPreviewText = string.Empty;
     private string _streamingFinalText = string.Empty;
     private bool _streamingFailed;
+    private CancellationTokenSource? _pendingHotkeyReleaseFinalize;
+    private bool _finalizationInProgress;
 
     public DictationCoordinator(
         SettingsService settingsService,
@@ -49,11 +54,17 @@ public sealed class DictationCoordinator
         IStreamingAsrEngine streamingAsrEngine,
         IPunctuationService punctuationService,
         IPostProcessingService postProcessingService,
-        ForegroundContextService foregroundContextService,
+        IForegroundContextService foregroundContextService,
         ITextInsertionService textInsertionService,
-        NotificationService notificationService,
-        LocalLogService logger)
+        INotificationService notificationService,
+        LocalLogService logger,
+        TimeSpan? hotkeyReleaseTailDuration = null)
     {
+        if (hotkeyReleaseTailDuration is { } tailDuration && tailDuration < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(hotkeyReleaseTailDuration), "尾录时长不能为负数。");
+        }
+
         _settingsService = settingsService;
         _audioCaptureService = audioCaptureService;
         _modelProvisioningService = modelProvisioningService;
@@ -70,6 +81,7 @@ public sealed class DictationCoordinator
         _textInsertionService = textInsertionService;
         _notificationService = notificationService;
         _logger = logger;
+        _hotkeyReleaseTailDuration = hotkeyReleaseTailDuration ?? DefaultHotkeyReleaseTailDuration;
     }
 
     public event EventHandler<DictationStatus>? StateChanged;
@@ -191,6 +203,11 @@ public sealed class DictationCoordinator
 
     public async Task BeginRecordingAsync()
     {
+        if (TryCancelPendingHotkeyReleaseFinalize())
+        {
+            return;
+        }
+
         if (!await _sessionLock.WaitAsync(0))
         {
             return;
@@ -204,6 +221,7 @@ public sealed class DictationCoordinator
                 return;
             }
 
+            ResetRecordingControlState();
             ResetStreamingSessionState();
             _captureContext = _foregroundContextService.Capture();
 
@@ -229,18 +247,75 @@ public sealed class DictationCoordinator
 
             CleanupStreamingResources();
             _captureContext = null;
+            ResetRecordingControlState();
             SetState(DictationState.Idle);
             _sessionLock.Release();
         }
     }
 
+    public Task FinalizeRecordingAfterHotkeyReleaseAsync()
+    {
+        CancellationTokenSource? delayedFinalizeCts = null;
+
+        lock (_recordingControlSync)
+        {
+            if (_state != DictationState.Recording ||
+                _finalizationInProgress ||
+                _pendingHotkeyReleaseFinalize is not null)
+            {
+                return Task.CompletedTask;
+            }
+
+            delayedFinalizeCts = new CancellationTokenSource();
+            _pendingHotkeyReleaseFinalize = delayedFinalizeCts;
+        }
+
+        _logger.Info($"热键已释放，将在 {_hotkeyReleaseTailDuration.TotalMilliseconds:0} ms 后结束录音。");
+        _ = RunHotkeyReleaseFinalizeAsync(delayedFinalizeCts);
+        return Task.CompletedTask;
+    }
+
     public async Task FinalizeRecordingAsync()
     {
-        if (_state != DictationState.Recording)
+        if (!TryEnterFinalization(expectedPendingHotkeyReleaseFinalize: null, out var pendingHotkeyReleaseFinalize))
         {
             return;
         }
 
+        if (pendingHotkeyReleaseFinalize is not null)
+        {
+            pendingHotkeyReleaseFinalize.Cancel();
+            _logger.Info("已取消待执行的尾录停止，立即结束录音。");
+        }
+
+        await FinalizeRecordingCoreAsync();
+    }
+
+    private async Task RunHotkeyReleaseFinalizeAsync(CancellationTokenSource delayedFinalizeCts)
+    {
+        try
+        {
+            await Task.Delay(_hotkeyReleaseTailDuration, delayedFinalizeCts.Token);
+
+            if (!TryEnterFinalization(delayedFinalizeCts, out _))
+            {
+                return;
+            }
+
+            _logger.Info("尾录结束，开始最终处理。");
+            await FinalizeRecordingCoreAsync();
+        }
+        catch (OperationCanceledException) when (delayedFinalizeCts.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            delayedFinalizeCts.Dispose();
+        }
+    }
+
+    private async Task FinalizeRecordingCoreAsync()
+    {
         try
         {
             SetState(DictationState.Finalizing);
@@ -297,6 +372,7 @@ public sealed class DictationCoordinator
             _audioCaptureService.AudioChunkAvailable -= OnAudioChunkAvailable;
             CleanupStreamingResources();
             _captureContext = null;
+            ResetRecordingControlState();
             SetState(DictationState.Idle);
             _sessionLock.Release();
         }
@@ -477,6 +553,70 @@ public sealed class DictationCoordinator
         _streamingPreviewText = string.Empty;
         _streamingFinalText = string.Empty;
         _streamingFailed = false;
+    }
+
+    private bool TryCancelPendingHotkeyReleaseFinalize()
+    {
+        CancellationTokenSource? pendingHotkeyReleaseFinalize;
+
+        lock (_recordingControlSync)
+        {
+            if (_state != DictationState.Recording ||
+                _finalizationInProgress ||
+                _pendingHotkeyReleaseFinalize is null)
+            {
+                return false;
+            }
+
+            pendingHotkeyReleaseFinalize = _pendingHotkeyReleaseFinalize;
+            _pendingHotkeyReleaseFinalize = null;
+        }
+
+        pendingHotkeyReleaseFinalize.Cancel();
+        _logger.Info("热键再次按下，已取消待执行的尾录停止。");
+        return true;
+    }
+
+    private bool TryEnterFinalization(
+        CancellationTokenSource? expectedPendingHotkeyReleaseFinalize,
+        out CancellationTokenSource? pendingHotkeyReleaseFinalizeToCancel)
+    {
+        lock (_recordingControlSync)
+        {
+            pendingHotkeyReleaseFinalizeToCancel = null;
+
+            if (_state != DictationState.Recording || _finalizationInProgress)
+            {
+                return false;
+            }
+
+            if (expectedPendingHotkeyReleaseFinalize is null)
+            {
+                pendingHotkeyReleaseFinalizeToCancel = _pendingHotkeyReleaseFinalize;
+                _pendingHotkeyReleaseFinalize = null;
+            }
+            else
+            {
+                if (!ReferenceEquals(_pendingHotkeyReleaseFinalize, expectedPendingHotkeyReleaseFinalize))
+                {
+                    return false;
+                }
+
+                _pendingHotkeyReleaseFinalize = null;
+            }
+
+            _finalizationInProgress = true;
+            return true;
+        }
+    }
+
+    private void ResetRecordingControlState()
+    {
+        lock (_recordingControlSync)
+        {
+            _pendingHotkeyReleaseFinalize = null;
+            _finalizationInProgress = false;
+        }
     }
 
     private void CleanupStreamingResources()

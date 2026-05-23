@@ -22,9 +22,17 @@
     <Compile Include="..\..\src\HsAsrDictation\Models\AsrModelKind.cs" Link="Source\Models\AsrModelKind.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Models\IModelProvisioningService.cs" Link="Source\Models\IModelProvisioningService.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Models\ModelReadyResult.cs" Link="Source\Models\ModelReadyResult.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Audio\AudioChunkAvailableEventArgs.cs" Link="Source\AudioChunkAvailableEventArgs.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Audio\AudioDeviceInfo.cs" Link="Source\AudioDeviceInfo.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Audio\IAudioCaptureService.cs" Link="Source\IAudioCaptureService.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Audio\RecordedAudio.cs" Link="Source\RecordedAudio.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Audio\AudioSilenceTrimmer.cs" Link="Source\AudioSilenceTrimmer.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Foreground\IForegroundContextService.cs" Link="Source\Foreground\IForegroundContextService.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Insertion\InsertionResult.cs" Link="Source\Insertion\InsertionResult.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Insertion\ITextInsertionService.cs" Link="Source\Insertion\ITextInsertionService.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Logging\LocalLogService.cs" Link="Source\Logging\LocalLogService.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Interop\Win32.cs" Link="Source\Interop\Win32.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Notifications\INotificationService.cs" Link="Source\Notifications\INotificationService.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Services\AppPaths.cs" Link="Source\Services\AppPaths.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Models\ModelManifest.cs" Link="Source\ModelManifest.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Models\PunctuationModelManifest.cs" Link="Source\PunctuationModelManifest.cs" />
@@ -71,6 +79,8 @@
     <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Rules\EnglishAcronymJoinRule.cs" Link="Source\PostProcessing\Rules\EnglishAcronymJoinRule.cs" />
     <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Validation\RegexSafetyValidator.cs" Link="Source\PostProcessing\Validation\RegexSafetyValidator.cs" />
     <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Validation\RuleValidator.cs" Link="Source\PostProcessing\Validation\RuleValidator.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Settings\SettingsService.cs" Link="Source\Settings\SettingsService.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Services\DictationCoordinator.cs" Link="Source\Services\DictationCoordinator.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Services\DictationStatus.cs" Link="Source\Services\DictationStatus.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Services\DictationState.cs" Link="Source\DictationState.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Services\ModelResidencyManager.cs" Link="Source\Services\ModelResidencyManager.cs" />
