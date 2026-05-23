@@ -37,6 +37,8 @@ namespace HsAsrDictation.Views;
         AutoDownloadModel = settings.AutoDownloadModel;
         EnablePunctuation = settings.EnablePunctuation;
         EnableStreamingPreview = settings.EnableStreamingPreview;
+        MaxRecordingDurationSecondsText = settings.MaxRecordingDurationSeconds.ToString();
+        HotkeyReleaseTailDurationMillisecondsText = settings.HotkeyReleaseTailDurationMilliseconds.ToString();
         SelectedRecognitionMode = RecognitionModes.First(x => x.Mode == settings.RecognitionMode);
         _hotkeyCapturePrompt = BuildIdleHotkeyPrompt();
     }
@@ -62,6 +64,10 @@ namespace HsAsrDictation.Views;
     public bool EnablePunctuation { get; set; }
 
     public bool EnableStreamingPreview { get; set; }
+
+    public string MaxRecordingDurationSecondsText { get; set; }
+
+    public string HotkeyReleaseTailDurationMillisecondsText { get; set; }
 
     public RecognitionModeOption SelectedRecognitionMode { get; set; } = null!;
 
@@ -106,7 +112,9 @@ namespace HsAsrDictation.Views;
 
     public string HotkeyCaptureButtonText => IsCapturingHotkey ? "取消录入" : "开始录入";
 
-    public AppSettings ToSettings()
+    public AppSettings ToSettings(
+        int maxRecordingDurationSeconds,
+        int hotkeyReleaseTailDurationMilliseconds)
     {
         return new AppSettings
         {
@@ -122,6 +130,8 @@ namespace HsAsrDictation.Views;
             EnablePostProcessingRules = PostProcessing.IsRuleSystemEnabled,
             RecognitionMode = SelectedRecognitionMode.Mode,
             EnableStreamingPreview = EnableStreamingPreview,
+            MaxRecordingDurationSeconds = maxRecordingDurationSeconds,
+            HotkeyReleaseTailDurationMilliseconds = hotkeyReleaseTailDurationMilliseconds,
             Hotkey = CandidateHotkey.CreateCopy()
         };
     }

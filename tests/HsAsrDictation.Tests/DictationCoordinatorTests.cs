@@ -110,11 +110,36 @@ public sealed class DictationCoordinatorTests
             message => message.Contains("已达到单次录音时长上限", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public async Task FinalizeRecordingAfterHotkeyReleaseAsync_UsesUpdatedSettingsTailDuration_WhenNoOverrideProvided()
+    {
+        using var harness = new CoordinatorHarness();
+        harness.Settings.Save(new AppSettings
+        {
+            RecognitionMode = RecognitionMode.NonStreaming,
+            EnableStreamingPreview = false,
+            EnablePostProcessingRules = false,
+            HotkeyReleaseTailDurationMilliseconds = 60
+        });
+
+        await harness.Coordinator.BeginRecordingAsync();
+        await harness.Coordinator.FinalizeRecordingAfterHotkeyReleaseAsync();
+
+        await Task.Delay(20);
+        Assert.Equal(0, harness.AudioCapture.StopCallCount);
+
+        await harness.AudioCapture.StopCalled.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        await harness.TextInsertion.InsertCalled.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+        Assert.Equal(1, harness.AudioCapture.StopCallCount);
+        Assert.Equal(new[] { "尾字保留" }, harness.TextInsertion.InsertedTexts);
+    }
+
     private sealed class CoordinatorHarness : IDisposable
     {
         private readonly string _tempDirectory;
 
-        public CoordinatorHarness(TimeSpan tailDuration)
+        public CoordinatorHarness(TimeSpan? tailDuration = null)
         {
             _tempDirectory = Path.Combine(
                 Path.GetTempPath(),
@@ -164,7 +189,7 @@ public sealed class DictationCoordinatorTests
 
         public FakeTextInsertionService TextInsertion { get; }
 
-        private SettingsService Settings { get; }
+        public SettingsService Settings { get; }
 
         private LocalLogService Logger { get; }
 

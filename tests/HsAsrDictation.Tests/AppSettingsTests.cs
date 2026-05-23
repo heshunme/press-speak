@@ -34,4 +34,46 @@ public sealed class AppSettingsTests
 
         Assert.True(normalized.Hotkey.IsEquivalentTo(HotkeyGesture.CreateDefault()));
     }
+
+    [Fact]
+    public void Normalize_ClampsMaxRecordingDurationSeconds_ToSupportedRange()
+    {
+        var tooSmall = new AppSettings
+        {
+            MaxRecordingDurationSeconds = AppSettings.MinMaxRecordingDurationSeconds - 1
+        };
+        var tooLarge = new AppSettings
+        {
+            MaxRecordingDurationSeconds = AppSettings.MaxMaxRecordingDurationSeconds + 1
+        };
+
+        var normalizedTooSmall = tooSmall.Normalize();
+        var normalizedTooLarge = tooLarge.Normalize();
+
+        Assert.Equal(AppSettings.MinMaxRecordingDurationSeconds, normalizedTooSmall.MaxRecordingDurationSeconds);
+        Assert.Equal(AppSettings.MaxMaxRecordingDurationSeconds, normalizedTooLarge.MaxRecordingDurationSeconds);
+    }
+
+    [Fact]
+    public void Normalize_ClampsHotkeyReleaseTailDurationMilliseconds_ToSupportedRange()
+    {
+        var tooSmall = new AppSettings
+        {
+            HotkeyReleaseTailDurationMilliseconds = AppSettings.MinHotkeyReleaseTailDurationMilliseconds - 1
+        };
+        var tooLarge = new AppSettings
+        {
+            HotkeyReleaseTailDurationMilliseconds = AppSettings.MaxHotkeyReleaseTailDurationMilliseconds + 1
+        };
+
+        var normalizedTooSmall = tooSmall.Normalize();
+        var normalizedTooLarge = tooLarge.Normalize();
+
+        Assert.Equal(
+            AppSettings.MinHotkeyReleaseTailDurationMilliseconds,
+            normalizedTooSmall.HotkeyReleaseTailDurationMilliseconds);
+        Assert.Equal(
+            AppSettings.MaxHotkeyReleaseTailDurationMilliseconds,
+            normalizedTooLarge.HotkeyReleaseTailDurationMilliseconds);
+    }
 }

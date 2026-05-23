@@ -6,6 +6,13 @@ namespace HsAsrDictation.Settings;
 
 public sealed class AppSettings
 {
+    public const int DefaultMaxRecordingDurationSeconds = 300;
+    public const int MinMaxRecordingDurationSeconds = 5;
+    public const int MaxMaxRecordingDurationSeconds = 1800;
+    public const int DefaultHotkeyReleaseTailDurationMilliseconds = 1000;
+    public const int MinHotkeyReleaseTailDurationMilliseconds = 0;
+    public const int MaxHotkeyReleaseTailDurationMilliseconds = 5000;
+
     public HotkeyGesture Hotkey { get; init; } = HotkeyGesture.CreateDefault();
 
     public string? PreferredInputDeviceName { get; init; }
@@ -28,6 +35,10 @@ public sealed class AppSettings
 
     public bool EnableStreamingPreview { get; init; } = true;
 
+    public int MaxRecordingDurationSeconds { get; init; } = DefaultMaxRecordingDurationSeconds;
+
+    public int HotkeyReleaseTailDurationMilliseconds { get; init; } = DefaultHotkeyReleaseTailDurationMilliseconds;
+
     public AppSettings Normalize()
     {
         var modelRootPath = string.IsNullOrWhiteSpace(ModelRootPath)
@@ -42,6 +53,16 @@ public sealed class AppSettings
             ? Path.Combine(modelRootPath, "streaming")
             : StreamingModelRootPath;
 
+        var maxRecordingDurationSeconds = Math.Clamp(
+            MaxRecordingDurationSeconds,
+            MinMaxRecordingDurationSeconds,
+            MaxMaxRecordingDurationSeconds);
+
+        var hotkeyReleaseTailDurationMilliseconds = Math.Clamp(
+            HotkeyReleaseTailDurationMilliseconds,
+            MinHotkeyReleaseTailDurationMilliseconds,
+            MaxHotkeyReleaseTailDurationMilliseconds);
+
         return new AppSettings
         {
             Hotkey = (Hotkey is not null && Hotkey.IsValid ? Hotkey : HotkeyGesture.CreateDefault()).Normalize(),
@@ -54,7 +75,9 @@ public sealed class AppSettings
             EnablePunctuation = EnablePunctuation,
             EnablePostProcessingRules = EnablePostProcessingRules,
             RecognitionMode = RecognitionMode,
-            EnableStreamingPreview = EnableStreamingPreview
+            EnableStreamingPreview = EnableStreamingPreview,
+            MaxRecordingDurationSeconds = maxRecordingDurationSeconds,
+            HotkeyReleaseTailDurationMilliseconds = hotkeyReleaseTailDurationMilliseconds
         };
     }
 

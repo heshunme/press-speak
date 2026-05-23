@@ -73,6 +73,38 @@ public partial class SettingsWindow : Window
             return;
         }
 
+        if (!int.TryParse(_viewModel.MaxRecordingDurationSecondsText?.Trim(), out var maxRecordingDurationSeconds))
+        {
+            System.Windows.MessageBox.Show(this, "单次录音上限必须是整数秒。", "HsAsrDictation");
+            return;
+        }
+
+        if (maxRecordingDurationSeconds < AppSettings.MinMaxRecordingDurationSeconds ||
+            maxRecordingDurationSeconds > AppSettings.MaxMaxRecordingDurationSeconds)
+        {
+            System.Windows.MessageBox.Show(
+                this,
+                $"单次录音上限必须在 {AppSettings.MinMaxRecordingDurationSeconds} 到 {AppSettings.MaxMaxRecordingDurationSeconds} 秒之间。",
+                "HsAsrDictation");
+            return;
+        }
+
+        if (!int.TryParse(_viewModel.HotkeyReleaseTailDurationMillisecondsText?.Trim(), out var hotkeyReleaseTailDurationMilliseconds))
+        {
+            System.Windows.MessageBox.Show(this, "松键尾录延迟必须是整数毫秒。", "HsAsrDictation");
+            return;
+        }
+
+        if (hotkeyReleaseTailDurationMilliseconds < AppSettings.MinHotkeyReleaseTailDurationMilliseconds ||
+            hotkeyReleaseTailDurationMilliseconds > AppSettings.MaxHotkeyReleaseTailDurationMilliseconds)
+        {
+            System.Windows.MessageBox.Show(
+                this,
+                $"松键尾录延迟必须在 {AppSettings.MinHotkeyReleaseTailDurationMilliseconds} 到 {AppSettings.MaxHotkeyReleaseTailDurationMilliseconds} 毫秒之间。",
+                "HsAsrDictation");
+            return;
+        }
+
         var config = _viewModel.PostProcessing.BuildConfig();
         var (ok, error) = RuleValidator.ValidateConfig(config);
         if (!ok)
@@ -81,7 +113,9 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        var updatedSettings = _viewModel.ToSettings();
+        var updatedSettings = _viewModel.ToSettings(
+            maxRecordingDurationSeconds,
+            hotkeyReleaseTailDurationMilliseconds);
         try
         {
             _postProcessingRuleRepository.Save(config);

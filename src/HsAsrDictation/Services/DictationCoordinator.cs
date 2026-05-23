@@ -16,7 +16,6 @@ namespace HsAsrDictation.Services;
 
 public sealed class DictationCoordinator
 {
-    private static readonly TimeSpan DefaultHotkeyReleaseTailDuration = TimeSpan.FromSeconds(1);
     private readonly SettingsService _settingsService;
     private readonly IAudioCaptureService _audioCaptureService;
     private readonly IModelProvisioningService _modelProvisioningService;
@@ -32,7 +31,7 @@ public sealed class DictationCoordinator
     private readonly LocalLogService _logger;
     private readonly SemaphoreSlim _sessionLock = new(1, 1);
     private readonly object _recordingControlSync = new();
-    private readonly TimeSpan _hotkeyReleaseTailDuration;
+    private readonly TimeSpan? _hotkeyReleaseTailDurationOverride;
 
     private DictationState _state = DictationState.Idle;
     private ForegroundContext? _captureContext;
@@ -81,7 +80,7 @@ public sealed class DictationCoordinator
         _textInsertionService = textInsertionService;
         _notificationService = notificationService;
         _logger = logger;
-        _hotkeyReleaseTailDuration = hotkeyReleaseTailDuration ?? DefaultHotkeyReleaseTailDuration;
+        _hotkeyReleaseTailDurationOverride = hotkeyReleaseTailDuration;
     }
 
     public event EventHandler<DictationStatus>? StateChanged;
@@ -258,6 +257,7 @@ public sealed class DictationCoordinator
     public Task FinalizeRecordingAfterHotkeyReleaseAsync()
     {
         CancellationTokenSource? delayedFinalizeCts = null;
+        var hotkeyReleaseTailDuration = GetHotkeyReleaseTailDuration();
 
         lock (_recordingControlSync)
         {
@@ -272,8 +272,8 @@ public sealed class DictationCoordinator
             _pendingHotkeyReleaseFinalize = delayedFinalizeCts;
         }
 
-        _logger.Info($"热键已释放，将在 {_hotkeyReleaseTailDuration.TotalMilliseconds:0} ms 后结束录音。");
-        _ = RunHotkeyReleaseFinalizeAsync(delayedFinalizeCts);
+        _logger.Info($"热键已释放，将在 {hotkeyReleaseTailDuration.TotalMilliseconds:0} ms 后结束录音。");
+        _ = RunHotkeyReleaseFinalizeAsync(delayedFinalizeCts, hotkeyReleaseTailDuration);
         return Task.CompletedTask;
     }
 
@@ -293,11 +293,13 @@ public sealed class DictationCoordinator
         await FinalizeRecordingCoreAsync();
     }
 
-    private async Task RunHotkeyReleaseFinalizeAsync(CancellationTokenSource delayedFinalizeCts)
+    private async Task RunHotkeyReleaseFinalizeAsync(
+        CancellationTokenSource delayedFinalizeCts,
+        TimeSpan hotkeyReleaseTailDuration)
     {
         try
         {
-            await Task.Delay(_hotkeyReleaseTailDuration, delayedFinalizeCts.Token);
+            await Task.Delay(hotkeyReleaseTailDuration, delayedFinalizeCts.Token);
 
             if (!TryEnterFinalization(delayedFinalizeCts, out _))
             {
@@ -579,6 +581,12 @@ public sealed class DictationCoordinator
         _streamingPreviewText = string.Empty;
         _streamingFinalText = string.Empty;
         _streamingFailed = false;
+    }
+
+    private TimeSpan GetHotkeyReleaseTailDuration()
+    {
+        return _hotkeyReleaseTailDurationOverride
+            ?? TimeSpan.FromMilliseconds(_settingsService.Current.HotkeyReleaseTailDurationMilliseconds);
     }
 
     private bool TryCancelPendingHotkeyReleaseFinalize()

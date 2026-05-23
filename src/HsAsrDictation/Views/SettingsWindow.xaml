@@ -34,6 +34,8 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
@@ -112,9 +114,53 @@
                     <TextBlock Grid.Row="5"
                                Grid.Column="0"
                                Margin="0,0,12,12"
+                               VerticalAlignment="Center"
+                               Text="录音上限" />
+                    <StackPanel Grid.Row="5"
+                                Grid.Column="1"
+                                Margin="0,0,0,12"
+                                Orientation="Vertical">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBox Width="120"
+                                     Margin="0,0,8,0"
+                                     Text="{Binding MaxRecordingDurationSecondsText, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBlock VerticalAlignment="Center"
+                                       Text="秒" />
+                        </StackPanel>
+                        <TextBlock Margin="0,6,0,0"
+                                   Foreground="#FF666666"
+                                   Text="默认 300 秒。达到上限时会自动结束当前听写，并继续识别和写回。"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="6"
+                               Grid.Column="0"
+                               Margin="0,0,12,12"
+                               VerticalAlignment="Center"
+                               Text="松键尾录延迟" />
+                    <StackPanel Grid.Row="6"
+                                Grid.Column="1"
+                                Margin="0,0,0,12"
+                                Orientation="Vertical">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBox Width="120"
+                                     Margin="0,0,8,0"
+                                     Text="{Binding HotkeyReleaseTailDurationMillisecondsText, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBlock VerticalAlignment="Center"
+                                       Text="毫秒" />
+                        </StackPanel>
+                        <TextBlock Margin="0,6,0,0"
+                                   Foreground="#FF666666"
+                                   Text="默认 1000 毫秒。最大 5000 毫秒；设为 0 表示松开热键后立即结束录音。"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="7"
+                               Grid.Column="0"
+                               Margin="0,0,12,12"
                                VerticalAlignment="Top"
                                Text="选项" />
-                    <StackPanel Grid.Row="5"
+                    <StackPanel Grid.Row="7"
                                 Grid.Column="1"
                                 Margin="0,0,0,12">
                         <CheckBox Content="缺模型时自动下载" IsChecked="{Binding AutoDownloadModel}" />
@@ -123,7 +169,7 @@
                         <CheckBox Content="启用实时流式预览" IsChecked="{Binding EnableStreamingPreview}" />
                     </StackPanel>
 
-                    <Border Grid.Row="6"
+                    <Border Grid.Row="8"
                             Grid.Column="0"
                             Grid.ColumnSpan="2"
                             Margin="0,8,0,0"

@@ -52,7 +52,7 @@ public partial class App : System.Windows.Application
         _notificationService = new NotificationService();
         _keyboardEventSource = new LowLevelKeyboardEventSource(_logger);
         _hotkeyManager = new LowLevelKeyboardHotkeyManager(_keyboardEventSource, _logger);
-        _audioCaptureService = new WaveInAudioCaptureService(_logger);
+        _audioCaptureService = new WaveInAudioCaptureService(_settingsService, _logger);
         _modelProvisioningService = new ModelProvisioningService(_settingsService, _logger);
         _punctuationModelProvisioningService = new PunctuationModelProvisioningService(_logger);
         _asrEngine = new SherpaFunAsrNanoEngine(_modelProvisioningService, _settingsService, _logger);
