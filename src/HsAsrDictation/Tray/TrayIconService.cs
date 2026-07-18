@@ -12,7 +12,7 @@ public sealed class TrayIconService : IDisposable
     private readonly ToolStripMenuItem _statusItem;
     private readonly LocalLogService _logger;
 
-    public TrayIconService(NotificationService notificationService, LocalLogService logger)
+    public TrayIconService(NotificationService notificationService, LocalLogService logger, bool isRunningAsAdministrator)
     {
         _logger = logger;
 
@@ -30,6 +30,18 @@ public sealed class TrayIconService : IDisposable
         var modelItem = new ToolStripMenuItem("下载/重载模型");
         modelItem.Click += (_, _) => ModelDownloadRequested?.Invoke(this, EventArgs.Empty);
 
+        ToolStripItem elevationItem = isRunningAsAdministrator
+            ? new ToolStripMenuItem("当前已是管理员模式")
+            {
+                Enabled = false
+            }
+            : new ToolStripMenuItem("以管理员模式重启");
+
+        if (elevationItem is ToolStripMenuItem elevationMenuItem && !isRunningAsAdministrator)
+        {
+            elevationMenuItem.Click += (_, _) => RestartAsAdministratorRequested?.Invoke(this, EventArgs.Empty);
+        }
+
         var logItem = new ToolStripMenuItem("打开日志目录");
         logItem.Click += (_, _) =>
         {
@@ -46,6 +58,7 @@ public sealed class TrayIconService : IDisposable
             toggleRecordingItem,
             settingsItem,
             modelItem,
+            elevationItem,
             logItem,
             new ToolStripSeparator(),
             exitItem
@@ -76,6 +89,8 @@ public sealed class TrayIconService : IDisposable
     public event EventHandler? ModelDownloadRequested;
 
     public event EventHandler? ToggleRecordingRequested;
+
+    public event EventHandler? RestartAsAdministratorRequested;
 
     public event EventHandler? ExitRequested;
 

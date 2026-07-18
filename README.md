@@ -58,6 +58,24 @@ dotnet build src/HsAsrDictation/HsAsrDictation.csproj
 dotnet run --project src/HsAsrDictation/HsAsrDictation.csproj
 ```
 
+如果你需要在管理员权限的终端或其他管理员窗口里使用热键，可以用下面的参数启动：
+
+```bash
+dotnet run --project src/HsAsrDictation/HsAsrDictation.csproj -- --admin
+```
+
+发布后的可执行文件同样支持：
+
+```text
+HsAsrDictation.exe --admin
+```
+
+说明：
+
+- 应用默认仍以普通权限启动
+- 传入 `--admin` 后会请求 UAC，以管理员模式重启自身
+- 托盘菜单也提供“以管理员模式重启”入口，便于临时切换
+
 ### 测试
 
 ```bash
@@ -156,6 +174,7 @@ docs/                      设计与实现说明
 - 当前首版没有接入真正的 VAD，只做了能量阈值静音裁剪。
 - 当前只提供录音期间的流式预览，不做持续边说边写回目标输入框。
 - 标点和通用后处理只作用于最终写回文本，不改写流式预览。
+- 管理员权限窗口需要应用自身也以管理员模式运行，普通权限实例无法稳定捕获这类窗口中的全局热键。
 - 管理员窗口、远程桌面和企业 IM 等输入环境还需要在真实 Windows 机器上补充回归测试。
 
 ## 文档

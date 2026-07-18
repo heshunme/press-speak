@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Forms;
 using HsAsrDictation.Asr;
 using HsAsrDictation.Audio;
 using HsAsrDictation.Foreground;
@@ -19,6 +20,8 @@ namespace HsAsrDictation;
 
 public partial class App : System.Windows.Application
 {
+    private const string AppTitle = "HsAsrDictation";
+
     private LocalLogService? _logger;
     private SettingsService? _settingsService;
     private NotificationService? _notificationService;
@@ -40,12 +43,52 @@ public partial class App : System.Windows.Application
     private IStatusOverlayService? _statusOverlayService;
     private DictationOverlayController? _dictationOverlayController;
     private SettingsWindow? _settingsWindow;
+    private ElevationService? _elevationService;
+    private StartupOptions _startupOptions = StartupOptions.Parse([]);
+    private bool _isRunningAsAdministrator;
+    private NotificationMessage? _pendingStartupNotification;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
+        _startupOptions = StartupOptions.Parse(e.Args);
         _logger = new LocalLogService(AppPaths.LogsDirectory);
+        _elevationService = new ElevationService();
+        _isRunningAsAdministrator = _elevationService.IsRunningAsAdministrator();
+
+        _logger.Info(
+            $"启动参数：admin={_startupOptions.RequestAdministrator}, elevationApplied={_startupOptions.ElevationApplied}, forwardedArgs={FormatForwardedArgs(_startupOptions.ForwardedArgs)}");
+        _logger.Info($"当前进程权限：admin={_isRunningAsAdministrator}");
+
+        if (_startupOptions.ShouldRestartAsAdministrator(_isRunningAsAdministrator))
+        {
+            var elevationResult = _elevationService.RestartAsAdministrator(_startupOptions);
+            if (elevationResult.WasStarted)
+            {
+                _logger.Info("已请求以管理员模式重启当前应用。");
+                Shutdown();
+                return;
+            }
+
+            if (elevationResult.WasCanceled)
+            {
+                _logger.Warn($"管理员模式启动已取消：{elevationResult.Message}");
+                _pendingStartupNotification = new NotificationMessage(
+                    AppTitle,
+                    "管理员模式启动已取消，当前将继续以普通权限运行。",
+                    ToolTipIcon.Warning);
+            }
+            else if (elevationResult.WasFailed)
+            {
+                _logger.Error($"请求管理员模式启动失败：{elevationResult.Message}");
+                _pendingStartupNotification = new NotificationMessage(
+                    AppTitle,
+                    $"请求管理员模式启动失败：{elevationResult.Message}",
+                    ToolTipIcon.Error);
+            }
+        }
+
         _settingsService = new SettingsService(AppPaths.SettingsFilePath, _logger);
         _settingsService.Load();
 
@@ -79,10 +122,11 @@ public partial class App : System.Windows.Application
             _notificationService,
             _logger);
 
-        _trayIconService = new TrayIconService(_notificationService, _logger);
+        _trayIconService = new TrayIconService(_notificationService, _logger, _isRunningAsAdministrator);
         _trayIconService.SettingsRequested += (_, _) => OpenSettingsWindow();
         _trayIconService.ModelDownloadRequested += async (_, _) => await _coordinator.RedownloadModelAsync();
         _trayIconService.ToggleRecordingRequested += async (_, _) => await _coordinator.ToggleRecordingAsync();
+        _trayIconService.RestartAsAdministratorRequested += (_, _) => RestartAsAdministratorFromTray();
         _trayIconService.ExitRequested += (_, _) => Shutdown();
 
         _coordinator.StateChanged += (_, status) =>
@@ -105,6 +149,12 @@ public partial class App : System.Windows.Application
             Mode = _settingsService.Current.RecognitionMode,
             OverlayText = DictationState.Idle.ToDisplayText()
         });
+
+        if (_pendingStartupNotification is not null)
+        {
+            RaiseNotification(_pendingStartupNotification);
+            _pendingStartupNotification = null;
+        }
     }
 
     protected override void OnExit(ExitEventArgs e)
@@ -180,4 +230,57 @@ public partial class App : System.Windows.Application
             _settingsWindow.Activate();
         });
     }
+
+    private void RestartAsAdministratorFromTray()
+    {
+        if (_elevationService is null || _notificationService is null || _logger is null)
+        {
+            return;
+        }
+
+        var result = _elevationService.RestartAsAdministrator(_startupOptions);
+        if (result.WasStarted)
+        {
+            _logger.Info("托盘已触发管理员模式重启。");
+            Shutdown();
+            return;
+        }
+
+        if (result.WasCanceled)
+        {
+            _logger.Warn($"托盘管理员模式启动已取消：{result.Message}");
+            _notificationService.Warn(AppTitle, "管理员模式启动已取消，当前实例将继续运行。");
+            return;
+        }
+
+        if (result.WasFailed)
+        {
+            _logger.Error($"托盘请求管理员模式启动失败：{result.Message}");
+            _notificationService.Error(AppTitle, $"请求管理员模式启动失败：{result.Message}");
+        }
+    }
+
+    private void RaiseNotification(NotificationMessage message)
+    {
+        if (_notificationService is null)
+        {
+            return;
+        }
+
+        switch (message.Icon)
+        {
+            case ToolTipIcon.Warning:
+                _notificationService.Warn(message.Title, message.Message);
+                break;
+            case ToolTipIcon.Error:
+                _notificationService.Error(message.Title, message.Message);
+                break;
+            default:
+                _notificationService.Info(message.Title, message.Message);
+                break;
+        }
+    }
+
+    private static string FormatForwardedArgs(IReadOnlyList<string> args) =>
+        args.Count == 0 ? "[]" : $"[{string.Join(", ", args)}]";
 }
