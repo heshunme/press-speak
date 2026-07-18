@@ -13,6 +13,9 @@ public readonly record struct HotkeyPhysicalKey(int VirtualKey, int ScanCode, bo
 
     public bool IsWindowsKey => VirtualKey is 0x5B or 0x5C;
 
+    public bool IsModifierKey => VirtualKey is 0x10 or 0x11 or 0x12 or 0xA0 or 0xA1 or 0xA2 or 0xA3 or 0xA4 or 0xA5
+        || IsWindowsKey;
+
     public bool IsRightAltKey => VirtualKey == 0xA5 || (ScanCode == 0x38 && IsExtendedKey);
 
     public bool IsLeftControlKey => VirtualKey == 0xA2 || (VirtualKey == 0x11 && ScanCode == 0x1D && !IsExtendedKey);

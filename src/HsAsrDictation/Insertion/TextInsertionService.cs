@@ -10,6 +10,10 @@ namespace HsAsrDictation.Insertion;
 
 public sealed class TextInsertionService : ITextInsertionService
 {
+    private const int ClipboardOpenFailureHResult = unchecked((int)0x800401D0);
+    private const int ClipboardAccessRetryCount = 5;
+    private static readonly TimeSpan ClipboardAccessRetryDelay = TimeSpan.FromMilliseconds(80);
+
     private readonly SettingsService _settingsService;
     private readonly ForegroundContextService _foregroundContextService;
     private readonly LocalLogService _logger;
@@ -52,6 +56,14 @@ public sealed class TextInsertionService : ITextInsertionService
 
         await Task.Delay(50, ct);
 
+        var preferClipboardInsertion = InputTargetClassifier.ShouldPreferClipboardInsertion(context);
+        if (preferClipboardInsertion && _settingsService.Current.AllowClipboardFallback)
+        {
+            _logger.Info(
+                $"目标窗口疑似终端，优先使用剪贴板回退。 process={context.ProcessName}, class={context.ClassName}, title={context.WindowTitle}");
+            return await PasteViaClipboardAsync(text, ct);
+        }
+
         if (TrySendUnicode(text))
         {
             return new InsertionResult
@@ -67,7 +79,9 @@ public sealed class TextInsertionService : ITextInsertionService
             {
                 Success = false,
                 Method = "SendInput",
-                Error = "Unicode 注入失败，且未启用剪贴板回退。"
+                Error = preferClipboardInsertion
+                    ? "目标窗口疑似终端，Unicode 注入失败，且未启用剪贴板回退。"
+                    : "Unicode 注入失败，且未启用剪贴板回退。"
             };
         }
 
@@ -101,16 +115,19 @@ public sealed class TextInsertionService : ITextInsertionService
         var dispatcher = System.Windows.Application.Current?.Dispatcher
             ?? throw new InvalidOperationException("WPF Dispatcher 不可用。");
 
-        await dispatcher.InvokeAsync(() =>
+        await RetryClipboardAccessAsync(async () =>
         {
-            if (System.Windows.Clipboard.ContainsData(System.Windows.DataFormats.Text) ||
-                System.Windows.Clipboard.ContainsText())
+            await dispatcher.InvokeAsync(() =>
             {
-                snapshot = System.Windows.Clipboard.GetDataObject();
-            }
+                if (System.Windows.Clipboard.ContainsData(System.Windows.DataFormats.Text) ||
+                    System.Windows.Clipboard.ContainsText())
+                {
+                    snapshot = System.Windows.Clipboard.GetDataObject();
+                }
 
-            System.Windows.Clipboard.SetText(text);
-        });
+                System.Windows.Clipboard.SetText(text);
+            });
+        }, ct);
 
         if (!TrySendPasteShortcut())
         {
@@ -124,13 +141,23 @@ public sealed class TextInsertionService : ITextInsertionService
 
         await Task.Delay(150, ct);
 
-        await dispatcher.InvokeAsync(() =>
+        try
         {
-            if (snapshot is not null)
+            await RetryClipboardAccessAsync(async () =>
             {
-                System.Windows.Clipboard.SetDataObject(snapshot, true);
-            }
-        });
+                await dispatcher.InvokeAsync(() =>
+                {
+                    if (snapshot is not null)
+                    {
+                        System.Windows.Clipboard.SetDataObject(snapshot, copy: false);
+                    }
+                });
+            }, ct);
+        }
+        catch (COMException ex) when (IsClipboardBusy(ex))
+        {
+            _logger.Warn($"恢复剪贴板快照失败，将保留当前剪贴板内容。 HRESULT=0x{ex.HResult:X8}");
+        }
 
         return new InsertionResult
         {
@@ -138,6 +165,28 @@ public sealed class TextInsertionService : ITextInsertionService
             Method = "Clipboard"
         };
     }
+
+    private async Task RetryClipboardAccessAsync(Func<Task> operation, CancellationToken ct)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            try
+            {
+                await operation();
+                return;
+            }
+            catch (COMException ex) when (IsClipboardBusy(ex) && attempt < ClipboardAccessRetryCount)
+            {
+                _logger.Warn(
+                    $"剪贴板暂时不可用，将重试。 attempt={attempt}/{ClipboardAccessRetryCount}, HRESULT=0x{ex.HResult:X8}");
+                await Task.Delay(ClipboardAccessRetryDelay, ct);
+            }
+        }
+    }
+
+    private static bool IsClipboardBusy(COMException ex) => ex.HResult == ClipboardOpenFailureHResult;
 
     private bool TrySendPasteShortcut()
     {

@@ -9,12 +9,14 @@ public sealed class LowLevelKeyboardHotkeyManager : IHotkeyManager
     private readonly HotkeyPressedState _pressedState = new();
     private bool _gestureActive;
     private bool _isSuspended;
+    private bool _suppressCurrentKeyEvent;
 
     public LowLevelKeyboardHotkeyManager(LowLevelKeyboardEventSource eventSource, LocalLogService logger)
     {
         _eventSource = eventSource;
         _logger = logger;
         _eventSource.KeyEvent += OnKeyEvent;
+        _eventSource.ShouldSuppressKeyEvent = ShouldSuppressKeyEvent;
         CurrentGesture = HotkeyGesture.CreateDefault();
     }
 
@@ -65,15 +67,18 @@ public sealed class LowLevelKeyboardHotkeyManager : IHotkeyManager
     public void Dispose()
     {
         _eventSource.KeyEvent -= OnKeyEvent;
+        _eventSource.ShouldSuppressKeyEvent = null;
     }
 
     private void OnKeyEvent(object? sender, HotkeyEventData keyEvent)
     {
         if (_isSuspended)
         {
+            _suppressCurrentKeyEvent = false;
             return;
         }
 
+        var wasActive = _gestureActive;
         _pressedState.Apply(keyEvent);
 
         var nowActive = HotkeyActivationEvaluator.IsActive(CurrentGesture, _pressedState.PressedKeys);
@@ -89,6 +94,13 @@ public sealed class LowLevelKeyboardHotkeyManager : IHotkeyManager
             _logger.Info($"热键已释放：{FormatEventData(keyEvent)} | binding={CurrentGesture.ToDisplayText()}");
             Released?.Invoke(this, EventArgs.Empty);
         }
+
+        _suppressCurrentKeyEvent = HotkeySuppressionEvaluator.ShouldSuppress(
+            CurrentGesture,
+            _pressedState.PressedKeys,
+            keyEvent,
+            wasActive,
+            nowActive);
     }
 
     private void ResetState(bool emitRelease = false)
@@ -105,4 +117,16 @@ public sealed class LowLevelKeyboardHotkeyManager : IHotkeyManager
 
     private static string FormatEventData(HotkeyEventData keyEvent) =>
         $"vk=0x{keyEvent.VirtualKey:X2}, scan=0x{keyEvent.ScanCode:X2}, extended={keyEvent.IsExtendedKey}, altContext={keyEvent.IsAltContext}, injected={keyEvent.IsInjected}, keyDown={keyEvent.IsKeyDown}";
+
+    private bool ShouldSuppressKeyEvent(HotkeyEventData keyEvent)
+    {
+        var suppress = _suppressCurrentKeyEvent;
+        if (suppress)
+        {
+            _logger.Info($"热键事件已消费：{FormatEventData(keyEvent)} | binding={CurrentGesture.ToDisplayText()}");
+        }
+
+        _suppressCurrentKeyEvent = false;
+        return suppress;
+    }
 }

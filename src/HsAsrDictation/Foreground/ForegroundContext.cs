@@ -15,4 +15,10 @@ public sealed class ForegroundContext
     public bool IsPasswordField { get; init; }
 
     public AutomationElement? FocusedElement { get; init; }
+
+    public string FocusedElementName { get; init; } = string.Empty;
+
+    public string FocusedElementClassName { get; init; } = string.Empty;
+
+    public string FocusedControlType { get; init; } = string.Empty;
 }

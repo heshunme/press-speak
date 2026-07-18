@@ -30,6 +30,7 @@
     <Compile Include="..\..\src\HsAsrDictation\Audio\RecordedAudio.cs" Link="Source\RecordedAudio.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Audio\AudioSilenceTrimmer.cs" Link="Source\AudioSilenceTrimmer.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Foreground\IForegroundContextService.cs" Link="Source\Foreground\IForegroundContextService.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Insertion\InputTargetClassifier.cs" Link="Source\Insertion\InputTargetClassifier.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Insertion\InsertionResult.cs" Link="Source\Insertion\InsertionResult.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Insertion\ITextInsertionService.cs" Link="Source\Insertion\ITextInsertionService.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Logging\LocalLogService.cs" Link="Source\Logging\LocalLogService.cs" />
@@ -56,6 +57,7 @@
     <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyPhysicalKeySet.cs" Link="Source\Hotkeys\HotkeyPhysicalKeySet.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyGesture.cs" Link="Source\Hotkeys\HotkeyGesture.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyPressedState.cs" Link="Source\Hotkeys\HotkeyPressedState.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeySuppressionEvaluator.cs" Link="Source\Hotkeys\HotkeySuppressionEvaluator.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyCaptureEvaluator.cs" Link="Source\Hotkeys\HotkeyCaptureEvaluator.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyCaptureParser.cs" Link="Source\Hotkeys\HotkeyCaptureParser.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyActivationEvaluator.cs" Link="Source\Hotkeys\HotkeyActivationEvaluator.cs" />

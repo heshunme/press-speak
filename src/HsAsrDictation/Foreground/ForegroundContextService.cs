@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 using System.Windows.Automation;
+using HsAsrDictation.Insertion;
 using HsAsrDictation.Interop;
 using HsAsrDictation.Logging;
 
@@ -51,7 +52,10 @@ public sealed class ForegroundContextService : IForegroundContextService
             WindowTitle = title,
             ClassName = className,
             IsPasswordField = isPasswordField,
-            FocusedElement = focusedElement
+            FocusedElement = focusedElement,
+            FocusedElementName = focusedElement?.Current.Name ?? string.Empty,
+            FocusedElementClassName = focusedElement?.Current.ClassName ?? string.Empty,
+            FocusedControlType = focusedElement?.Current.ControlType?.ProgrammaticName ?? string.Empty
         };
     }
 
@@ -64,7 +68,7 @@ public sealed class ForegroundContextService : IForegroundContextService
 
         var restored = Win32.SetForegroundWindow(context.WindowHandle);
 
-        if (context.FocusedElement is null)
+        if (context.FocusedElement is null || InputTargetClassifier.ShouldSkipUiAutomationFocusRestore(context))
         {
             return restored;
         }

@@ -19,6 +19,8 @@ public sealed class LowLevelKeyboardEventSource : IDisposable
 
     public event EventHandler<HotkeyEventData>? KeyEvent;
 
+    public Func<HotkeyEventData, bool>? ShouldSuppressKeyEvent { get; set; }
+
     public void Start()
     {
         if (_hookHandle != IntPtr.Zero)
@@ -64,6 +66,11 @@ public sealed class LowLevelKeyboardEventSource : IDisposable
             if (!keyEvent.IsInjected)
             {
                 KeyEvent?.Invoke(this, keyEvent);
+
+                if (ShouldSuppressKeyEvent?.Invoke(keyEvent) == true)
+                {
+                    return (IntPtr)1;
+                }
             }
         }
 
