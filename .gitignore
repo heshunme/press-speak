@@ -16,3 +16,6 @@ TestResults/
 # Common transient files
 *.cache
 *.log
+
+# Local-only helper scripts
+scripts/sync-local-win-install.sh
