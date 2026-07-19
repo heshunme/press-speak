@@ -37,6 +37,8 @@
     <Compile Include="..\..\src\HsAsrDictation\Interop\Win32.cs" Link="Source\Interop\Win32.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Notifications\INotificationService.cs" Link="Source\Notifications\INotificationService.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Services\AppPaths.cs" Link="Source\Services\AppPaths.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Services\PrivilegeMode.cs" Link="Source\Services\PrivilegeMode.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Services\SingleInstanceLaunchMessaging.cs" Link="Source\Services\SingleInstanceLaunchMessaging.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Services\StartupOptions.cs" Link="Source\Services\StartupOptions.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Models\ModelManifest.cs" Link="Source\ModelManifest.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Models\PunctuationModelManifest.cs" Link="Source\PunctuationModelManifest.cs" />

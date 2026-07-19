@@ -21,7 +21,8 @@ namespace HsAsrDictation.Views;
         AppSettings settings,
         IReadOnlyList<AudioDeviceInfo> devices,
         PostProcessingConfig postProcessingConfig,
-        HotkeyGesture? runtimeHotkey = null)
+        HotkeyGesture? runtimeHotkey = null,
+        string? currentPrivilegeModeText = null)
     {
         var effectiveHotkey = (runtimeHotkey ?? settings.Hotkey).CreateCopy();
         Devices = new ObservableCollection<AudioDeviceInfo>(devices);
@@ -40,6 +41,12 @@ namespace HsAsrDictation.Views;
         MaxRecordingDurationSecondsText = settings.MaxRecordingDurationSeconds.ToString();
         HotkeyReleaseTailDurationMillisecondsText = settings.HotkeyReleaseTailDurationMilliseconds.ToString();
         SelectedRecognitionMode = RecognitionModes.First(x => x.Mode == settings.RecognitionMode);
+        CurrentPrivilegeModeText = string.IsNullOrWhiteSpace(currentPrivilegeModeText)
+            ? "普通模式"
+            : currentPrivilegeModeText;
+        CurrentPrivilegeModeHint = string.Equals(CurrentPrivilegeModeText, "管理员模式", StringComparison.Ordinal)
+            ? "当前模式可用于管理员权限窗口中的热键捕获与文本输入。"
+            : "如需在管理员权限窗口中使用热键，请通过托盘入口或 `--admin` 以管理员模式重启应用。";
         _hotkeyCapturePrompt = BuildIdleHotkeyPrompt();
     }
 
@@ -70,6 +77,10 @@ namespace HsAsrDictation.Views;
     public string HotkeyReleaseTailDurationMillisecondsText { get; set; }
 
     public RecognitionModeOption SelectedRecognitionMode { get; set; } = null!;
+
+    public string CurrentPrivilegeModeText { get; }
+
+    public string CurrentPrivilegeModeHint { get; }
 
     public HotkeyGesture CandidateHotkey
     {

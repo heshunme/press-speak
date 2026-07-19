@@ -44,8 +44,9 @@ public partial class App : System.Windows.Application
     private DictationOverlayController? _dictationOverlayController;
     private SettingsWindow? _settingsWindow;
     private ElevationService? _elevationService;
+    private SingleInstanceCoordinator? _singleInstanceCoordinator;
     private StartupOptions _startupOptions = StartupOptions.Parse([]);
-    private bool _isRunningAsAdministrator;
+    private PrivilegeMode _currentPrivilegeMode;
     private NotificationMessage? _pendingStartupNotification;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -55,13 +56,33 @@ public partial class App : System.Windows.Application
         _startupOptions = StartupOptions.Parse(e.Args);
         _logger = new LocalLogService(AppPaths.LogsDirectory);
         _elevationService = new ElevationService();
-        _isRunningAsAdministrator = _elevationService.IsRunningAsAdministrator();
+        _currentPrivilegeMode = _elevationService.IsRunningAsAdministrator()
+            ? PrivilegeMode.Administrator
+            : PrivilegeMode.Standard;
 
         _logger.Info(
             $"启动参数：admin={_startupOptions.RequestAdministrator}, elevationApplied={_startupOptions.ElevationApplied}, forwardedArgs={FormatForwardedArgs(_startupOptions.ForwardedArgs)}");
-        _logger.Info($"当前进程权限：admin={_isRunningAsAdministrator}");
+        _logger.Info($"当前运行模式：{_currentPrivilegeMode.ToDisplayText()}");
 
-        if (_startupOptions.ShouldRestartAsAdministrator(_isRunningAsAdministrator))
+        var instanceRuntimeContext = InstanceRuntimeContext.CreateForCurrentUser();
+        _singleInstanceCoordinator = new SingleInstanceCoordinator(instanceRuntimeContext, _logger);
+        var instanceStartupResult = _singleInstanceCoordinator.CoordinateStartup(_currentPrivilegeMode, _startupOptions);
+        if (!instanceStartupResult.ShouldContinueStartup)
+        {
+            if (!string.IsNullOrWhiteSpace(instanceStartupResult.ExitMessage))
+            {
+                System.Windows.MessageBox.Show(
+                    instanceStartupResult.ExitMessage,
+                    AppTitle,
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+
+            Shutdown();
+            return;
+        }
+
+        if (_startupOptions.ShouldRestartAsAdministrator(_currentPrivilegeMode == PrivilegeMode.Administrator))
         {
             var elevationResult = _elevationService.RestartAsAdministrator(_startupOptions);
             if (elevationResult.WasStarted)
@@ -122,7 +143,7 @@ public partial class App : System.Windows.Application
             _notificationService,
             _logger);
 
-        _trayIconService = new TrayIconService(_notificationService, _logger, _isRunningAsAdministrator);
+        _trayIconService = new TrayIconService(_notificationService, _logger, _currentPrivilegeMode);
         _trayIconService.SettingsRequested += (_, _) => OpenSettingsWindow();
         _trayIconService.ModelDownloadRequested += async (_, _) => await _coordinator.RedownloadModelAsync();
         _trayIconService.ToggleRecordingRequested += async (_, _) => await _coordinator.ToggleRecordingAsync();
@@ -173,6 +194,7 @@ public partial class App : System.Windows.Application
         _punctuationService?.Dispose();
         _statusOverlayService?.Dispose();
         _trayIconService?.Dispose();
+        _singleInstanceCoordinator?.Dispose();
         _logger?.Dispose();
         base.OnExit(e);
     }
@@ -213,7 +235,8 @@ public partial class App : System.Windows.Application
                 _keyboardEventSource,
                 _logger,
                 _postProcessingRuleRepository,
-                _postProcessingService);
+                _postProcessingService,
+                _currentPrivilegeMode.ToDisplayText());
 
             _settingsWindow.SettingsSaved += (_, updatedSettings) =>
             {

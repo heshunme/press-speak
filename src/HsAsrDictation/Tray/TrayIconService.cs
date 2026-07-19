@@ -3,6 +3,7 @@ using System.IO;
 using System.Windows.Forms;
 using HsAsrDictation.Logging;
 using HsAsrDictation.Notifications;
+using HsAsrDictation.Services;
 
 namespace HsAsrDictation.Tray;
 
@@ -11,10 +12,12 @@ public sealed class TrayIconService : IDisposable
     private readonly NotifyIcon _notifyIcon;
     private readonly ToolStripMenuItem _statusItem;
     private readonly LocalLogService _logger;
+    private readonly PrivilegeMode _privilegeMode;
 
-    public TrayIconService(NotificationService notificationService, LocalLogService logger, bool isRunningAsAdministrator)
+    public TrayIconService(NotificationService notificationService, LocalLogService logger, PrivilegeMode privilegeMode)
     {
         _logger = logger;
+        _privilegeMode = privilegeMode;
 
         _statusItem = new ToolStripMenuItem("状态：就绪")
         {
@@ -30,14 +33,14 @@ public sealed class TrayIconService : IDisposable
         var modelItem = new ToolStripMenuItem("下载/重载模型");
         modelItem.Click += (_, _) => ModelDownloadRequested?.Invoke(this, EventArgs.Empty);
 
-        ToolStripItem elevationItem = isRunningAsAdministrator
+        ToolStripItem elevationItem = privilegeMode == PrivilegeMode.Administrator
             ? new ToolStripMenuItem("当前已是管理员模式")
             {
                 Enabled = false
             }
             : new ToolStripMenuItem("以管理员模式重启");
 
-        if (elevationItem is ToolStripMenuItem elevationMenuItem && !isRunningAsAdministrator)
+        if (elevationItem is ToolStripMenuItem elevationMenuItem && privilegeMode != PrivilegeMode.Administrator)
         {
             elevationMenuItem.Click += (_, _) => RestartAsAdministratorRequested?.Invoke(this, EventArgs.Empty);
         }
@@ -98,8 +101,8 @@ public sealed class TrayIconService : IDisposable
     {
         RunOnUiThread(() =>
         {
-            _statusItem.Text = $"状态：{statusText}";
-            _notifyIcon.Text = $"HsAsrDictation - {statusText}";
+            _statusItem.Text = $"状态：{statusText}（{_privilegeMode.ToDisplayText()}）";
+            _notifyIcon.Text = BuildNotifyIconText(statusText);
         });
     }
 
@@ -123,5 +126,11 @@ public sealed class TrayIconService : IDisposable
         }
 
         dispatcher.Invoke(action);
+    }
+
+    private string BuildNotifyIconText(string statusText)
+    {
+        var text = $"HsAsrDictation - {statusText} - {_privilegeMode.ToShortDisplayText()}";
+        return text.Length <= 63 ? text : text[..63];
     }
 }

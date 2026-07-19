@@ -33,7 +33,8 @@ public partial class SettingsWindow : Window
         LowLevelKeyboardEventSource keyboardEventSource,
         LocalLogService logger,
         IPostProcessingRuleRepository postProcessingRuleRepository,
-        IPostProcessingService postProcessingService)
+        IPostProcessingService postProcessingService,
+        string currentPrivilegeModeText)
     {
         InitializeComponent();
         _hotkeyManager = hotkeyManager;
@@ -47,7 +48,8 @@ public partial class SettingsWindow : Window
             currentSettings,
             devices,
             _postProcessingRuleRepository.Load(),
-            _hotkeyManager.CurrentGesture);
+            _hotkeyManager.CurrentGesture,
+            currentPrivilegeModeText);
         DataContext = _viewModel;
     }
 

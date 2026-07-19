@@ -176,9 +176,18 @@
                             Padding="12"
                             Background="#FFF6F6F6"
                             CornerRadius="6">
-                        <TextBlock TextWrapping="Wrap">
-                            首版仅支持 Windows 11 x64。模型默认下载到本地应用数据目录，首次准备模型时间较长属于正常现象。
-                        </TextBlock>
+                        <StackPanel>
+                            <TextBlock FontWeight="SemiBold"
+                                       Text="{Binding CurrentPrivilegeModeText, StringFormat=当前运行模式：{0}}" />
+                            <TextBlock Margin="0,6,0,0"
+                                       Foreground="#FF666666"
+                                       Text="{Binding CurrentPrivilegeModeHint}"
+                                       TextWrapping="Wrap" />
+                            <TextBlock Margin="0,8,0,0"
+                                       TextWrapping="Wrap">
+                                首版仅支持 Windows 11 x64。模型默认下载到本地应用数据目录，首次准备模型时间较长属于正常现象。
+                            </TextBlock>
+                        </StackPanel>
                     </Border>
                 </Grid>
             </TabItem>
