@@ -27,10 +27,13 @@ internal static class WindowsStartupRegistrationSecurityValidator
     private const int ErrorInsufficientBuffer = 122;
     private const uint SecurityGroupEnabled = 0x00000004;
     private const int MaxDosDeviceTargetLength = 32768;
-    private const string LocalSystemSid = "S-1-5-18";
-    private const string AdministratorsSid = "S-1-5-32-544";
+    // 以下三个 SID 是修复流程（WindowsStartupAclRepairService）唯一的信任主体来源；
+    // 修复授予的账户必须和这里的判定完全一致，否则会出现"修复后仍然校验不过"或
+    // "修复授予了校验并不认可的信任范围"的漂移，因此保持 internal 而非各自重复硬编码。
+    internal const string LocalSystemSid = "S-1-5-18";
+    internal const string AdministratorsSid = "S-1-5-32-544";
     private const string CreatorOwnerSid = "S-1-3-0";
-    private const string TrustedInstallerSid =
+    internal const string TrustedInstallerSid =
         "S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464";
 
     private const uint FileWriteData = 0x00000002;
@@ -65,9 +68,93 @@ internal static class WindowsStartupRegistrationSecurityValidator
         string executablePath,
         string targetUserSid)
     {
+        var outcome = ValidateCore(executablePath, targetUserSid);
+        return outcome.WasSuccessful
+            ? StartupRegistrationChangeResult.Succeeded()
+            : StartupRegistrationChangeResult.Failed(outcome.Message!);
+    }
+
+    /// <summary>
+    /// 供 ACL 修复流程判断"是否值得为这次失败发起一次单独的 icacls 提权修复"。
+    /// 唯一有权判定"可以提权"的仍然是 <see cref="Validate"/>（经由本方法内部调用的
+    /// <see cref="ValidateCore"/> 完全相同的逻辑）；这里只是在同一次校验结果之上
+    /// 追加"失败原因是否属于可修复的应用目录 ACL/属主问题"的分类判断，绝不放宽
+    /// 或替代原有校验。修复流程必须在执行修复后重新调用 <see cref="Validate"/>
+    /// 得到全新结果，不能复用这里返回的布尔值作为"已修复"的证明。
+    /// </summary>
+    internal static bool IsRepairableAclFailure(string executablePath, string targetUserSid)
+    {
+        var outcome = ValidateCore(executablePath, targetUserSid);
+        if (outcome.Category != ValidationFailureCategory.ApplicationTreeAcl)
+        {
+            return false;
+        }
+
+        // 硬链接不带重解析点属性，现有树遍历不会拦截；但属主/DACL 挂在共享的文件
+        // 记录上而非目录项上，递归修复会连带改到硬链接指向的、安装目录之外的文件，
+        // 因此发现硬链接一律按"不可自动修复"处理（修复范围之外的场景，交由人工处理）。
+        var applicationDirectory = Path.GetDirectoryName(Path.GetFullPath(executablePath));
+        return applicationDirectory is not null && !HasHardLink(applicationDirectory, out _);
+    }
+
+    /// <summary>
+    /// 扫描目录树内是否存在硬链接（<c>nNumberOfLinks &gt; 1</c>）。修复前用于判断
+    /// 是否可以自动修复，修复后用于兜底复查——两处必须调用同一份逻辑，不能各自实现。
+    /// </summary>
+    internal static bool HasHardLink(string directory, out string? offendingPath)
+    {
+        try
+        {
+            foreach (var entry in Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories))
+            {
+                if (GetHardLinkCount(entry) > 1)
+                {
+                    offendingPath = entry;
+                    return true;
+                }
+            }
+
+            offendingPath = null;
+            return false;
+        }
+        catch (Exception)
+        {
+            // 无法枚举/打开时保守地按"存在风险"处理。
+            offendingPath = directory;
+            return true;
+        }
+    }
+
+    private static uint GetHardLinkCount(string filePath)
+    {
+        using var handle = CreateFileW(
+            filePath,
+            ReadControl,
+            FileShareRead | FileShareWrite | FileShareDelete,
+            IntPtr.Zero,
+            OpenExisting,
+            FileFlagOpenReparsePoint,
+            IntPtr.Zero);
+        if (handle.IsInvalid)
+        {
+            throw new Win32Exception(Marshal.GetLastWin32Error(), $"无法打开硬链接检测目标：{filePath}");
+        }
+
+        if (!GetFileInformationByHandle(handle, out var information))
+        {
+            throw new Win32Exception(Marshal.GetLastWin32Error(), $"无法读取文件信息：{filePath}");
+        }
+
+        return information.NumberOfLinks;
+    }
+
+    private static ValidationOutcome ValidateCore(
+        string executablePath,
+        string targetUserSid)
+    {
         if (!OperatingSystem.IsWindows())
         {
-            return StartupRegistrationChangeResult.Failed("管理员登录自启动仅支持 Windows。");
+            return ValidationOutcome.Failure("管理员登录自启动仅支持 Windows。", ValidationFailureCategory.Other);
         }
 
         try
@@ -75,15 +162,18 @@ internal static class WindowsStartupRegistrationSecurityValidator
             var normalizedExecutablePath = Path.GetFullPath(executablePath);
             if (!File.Exists(normalizedExecutablePath))
             {
-                return StartupRegistrationChangeResult.Failed("当前程序文件不存在，无法配置管理员登录自启动。");
+                return ValidationOutcome.Failure(
+                    "当前程序文件不存在，无法配置管理员登录自启动。",
+                    ValidationFailureCategory.Other);
             }
 
             using var identity = WindowsIdentity.GetCurrent();
             var targetSid = new SecurityIdentifier(targetUserSid);
             if (identity.User is null || !identity.User.Equals(targetSid))
             {
-                return StartupRegistrationChangeResult.Failed(
-                    "管理员登录自启动只能由目标 Windows 账号本人配置；不支持使用其他管理员账号凭据代为创建。");
+                return ValidationOutcome.Failure(
+                    "管理员登录自启动只能由目标 Windows 账号本人配置；不支持使用其他管理员账号凭据代为创建。",
+                    ValidationFailureCategory.Other);
             }
 
             using var currentToken = OpenCurrentProcessToken();
@@ -91,18 +181,20 @@ internal static class WindowsStartupRegistrationSecurityValidator
             if (currentElevationType == TokenElevationType.Default)
             {
                 var currentPrincipal = new WindowsPrincipal(identity);
-                return currentPrincipal.IsInRole(WindowsBuiltInRole.Administrator)
-                    ? StartupRegistrationChangeResult.Failed(
-                        "当前系统没有可用于安全校验的 UAC 非提升令牌；请改用普通模式自动启动。")
-                    : StartupRegistrationChangeResult.Failed(
-                        "当前 Windows 账号不属于管理员组，无法配置管理员模式自动启动。");
+                return ValidationOutcome.Failure(
+                    currentPrincipal.IsInRole(WindowsBuiltInRole.Administrator)
+                        ? "当前系统没有可用于安全校验的 UAC 非提升令牌；请改用普通模式自动启动。"
+                        : "当前 Windows 账号不属于管理员组，无法配置管理员模式自动启动。",
+                    ValidationFailureCategory.Other);
             }
 
             using var linkedToken = GetLinkedToken(currentToken);
             var linkedElevationType = GetElevationType(linkedToken);
             if (!IsExpectedLinkedTokenPair(currentElevationType, linkedElevationType))
             {
-                return StartupRegistrationChangeResult.Failed("Windows UAC 令牌关系异常，无法安全配置管理员登录自启动。");
+                return ValidationOutcome.Failure(
+                    "Windows UAC 令牌关系异常，无法安全配置管理员登录自启动。",
+                    ValidationFailureCategory.Other);
             }
 
             var membershipSource = currentElevationType == TokenElevationType.Full
@@ -114,45 +206,46 @@ internal static class WindowsStartupRegistrationSecurityValidator
 
             if (!IsAdministrator(membershipSource))
             {
-                return StartupRegistrationChangeResult.Failed(
-                    "当前 Windows 账号不属于管理员组，无法配置管理员模式自动启动。");
+                return ValidationOutcome.Failure(
+                    "当前 Windows 账号不属于管理员组，无法配置管理员模式自动启动。",
+                    ValidationFailureCategory.Other);
             }
 
             using var standardToken = DuplicateAsIdentificationToken(standardSource);
-            var pathValidationError = ValidateProtectedApplicationTree(
-                normalizedExecutablePath,
-                standardToken);
-            return pathValidationError is null
-                ? StartupRegistrationChangeResult.Succeeded()
-                : StartupRegistrationChangeResult.Failed(pathValidationError);
+            return ValidateProtectedApplicationTree(normalizedExecutablePath, standardToken);
         }
         catch (Exception ex)
         {
-            return StartupRegistrationChangeResult.Failed(
-                $"无法验证管理员登录自启动的安全条件：{ex.Message}");
+            return ValidationOutcome.Failure(
+                $"无法验证管理员登录自启动的安全条件：{ex.Message}",
+                ValidationFailureCategory.Other);
         }
     }
 
-    private static string? ValidateProtectedApplicationTree(
+    private static ValidationOutcome ValidateProtectedApplicationTree(
         string executablePath,
         SafeAccessTokenHandle standardToken)
     {
         var applicationDirectory = Path.GetDirectoryName(executablePath);
         if (string.IsNullOrWhiteSpace(applicationDirectory))
         {
-            return "无法解析当前程序目录。";
+            return ValidationOutcome.Failure("无法解析当前程序目录。", ValidationFailureCategory.Other);
         }
 
         var rootPath = Path.GetPathRoot(applicationDirectory);
         if (string.IsNullOrWhiteSpace(rootPath) || applicationDirectory.StartsWith(@"\\", StringComparison.Ordinal))
         {
-            return "管理员模式自动启动不支持网络安装目录。";
+            return ValidationOutcome.Failure(
+                "管理员模式自动启动不支持网络安装目录。",
+                ValidationFailureCategory.UnsupportedVolumeOrMapping);
         }
 
         var rootMappingValidationError = ValidateApplicationRootMapping(rootPath);
         if (rootMappingValidationError is not null)
         {
-            return rootMappingValidationError;
+            return ValidationOutcome.Failure(
+                rootMappingValidationError,
+                ValidationFailureCategory.UnsupportedVolumeOrMapping);
         }
 
         var drive = new DriveInfo(rootPath);
@@ -161,7 +254,9 @@ internal static class WindowsStartupRegistrationSecurityValidator
             drive.DriveFormat);
         if (volumeValidationError is not null)
         {
-            return volumeValidationError;
+            return ValidationOutcome.Failure(
+                volumeValidationError,
+                ValidationFailureCategory.UnsupportedVolumeOrMapping);
         }
 
         var pendingDirectories = new Stack<string>();
@@ -170,14 +265,14 @@ internal static class WindowsStartupRegistrationSecurityValidator
         while (pendingDirectories.Count > 0)
         {
             var directory = pendingDirectories.Pop();
-            var directoryError = ValidateTreeEntry(
+            var directoryOutcome = ValidateTreeEntry(
                 directory,
                 isDirectory: true,
                 DirectoryMutationMask,
                 standardToken);
-            if (directoryError is not null)
+            if (directoryOutcome is { } directoryFailure)
             {
-                return directoryError;
+                return directoryFailure;
             }
 
             foreach (var entry in Directory.EnumerateFileSystemEntries(directory))
@@ -185,7 +280,9 @@ internal static class WindowsStartupRegistrationSecurityValidator
                 var attributes = File.GetAttributes(entry);
                 if ((attributes & FileAttributes.ReparsePoint) != 0)
                 {
-                    return $"程序目录包含重解析点，无法安全配置管理员模式自动启动：{entry}";
+                    return ValidationOutcome.Failure(
+                        $"程序目录包含重解析点，无法安全配置管理员模式自动启动：{entry}",
+                        ValidationFailureCategory.ReparsePoint);
                 }
 
                 if ((attributes & FileAttributes.Directory) != 0)
@@ -194,19 +291,22 @@ internal static class WindowsStartupRegistrationSecurityValidator
                     continue;
                 }
 
-                var fileError = ValidateTreeEntry(
+                var fileOutcome = ValidateTreeEntry(
                     entry,
                     isDirectory: false,
                     FileMutationMask,
                     standardToken);
-                if (fileError is not null)
+                if (fileOutcome is { } fileFailure)
                 {
-                    return fileError;
+                    return fileFailure;
                 }
             }
         }
 
-        return ValidateAncestorReplacementRisk(applicationDirectory, standardToken);
+        var ancestorError = ValidateAncestorReplacementRisk(applicationDirectory, standardToken);
+        return ancestorError is null
+            ? ValidationOutcome.Success
+            : ValidationOutcome.Failure(ancestorError, ValidationFailureCategory.AncestorReplacementRisk);
     }
 
     internal static string? ValidateApplicationVolume(DriveType driveType, string driveFormat)
@@ -256,7 +356,7 @@ internal static class WindowsStartupRegistrationSecurityValidator
         return ValidateDosDeviceTarget(rootPath, target.ToString());
     }
 
-    private static string? ValidateTreeEntry(
+    private static ValidationOutcome? ValidateTreeEntry(
         string path,
         bool isDirectory,
         uint mutationMask,
@@ -265,18 +365,24 @@ internal static class WindowsStartupRegistrationSecurityValidator
         var attributes = File.GetAttributes(path);
         if ((attributes & FileAttributes.ReparsePoint) != 0)
         {
-            return $"程序路径包含重解析点，无法安全配置管理员模式自动启动：{path}";
+            return ValidationOutcome.Failure(
+                $"程序路径包含重解析点，无法安全配置管理员模式自动启动：{path}",
+                ValidationFailureCategory.ReparsePoint);
         }
 
         var access = InspectPathSecurity(path, isDirectory, mutationMask, standardToken);
         if (access.UntrustedMutationAccess != 0)
         {
-            return $"程序文件或目录允许非受信任主体写入，已拒绝管理员模式自动启动：{path}（{access.UntrustedPrincipal}）。";
+            return ValidationOutcome.Failure(
+                $"程序文件或目录允许非受信任主体写入，已拒绝管理员模式自动启动：{path}（{access.UntrustedPrincipal}）。",
+                ValidationFailureCategory.ApplicationTreeAcl);
         }
 
         return (access.CurrentUserAccess & mutationMask) == 0
             ? null
-            : $"普通权限进程可以修改程序文件或目录，已拒绝管理员模式自动启动：{path}。请先安装到 ACL 受保护的目录。";
+            : ValidationOutcome.Failure(
+                $"普通权限进程可以修改程序文件或目录，已拒绝管理员模式自动启动：{path}。请先安装到 ACL 受保护的目录。",
+                ValidationFailureCategory.ApplicationTreeAcl);
     }
 
     private static string? ValidateAncestorReplacementRisk(
@@ -713,6 +819,26 @@ internal static class WindowsStartupRegistrationSecurityValidator
         uint UntrustedMutationAccess,
         string? UntrustedPrincipal);
 
+    private readonly record struct ValidationOutcome(string? Message, ValidationFailureCategory Category)
+    {
+        public static readonly ValidationOutcome Success = new(null, ValidationFailureCategory.None);
+
+        public bool WasSuccessful => Message is null;
+
+        public static ValidationOutcome Failure(string message, ValidationFailureCategory category) =>
+            new(message, category);
+    }
+
+    private enum ValidationFailureCategory
+    {
+        None,
+        Other,
+        UnsupportedVolumeOrMapping,
+        ReparsePoint,
+        ApplicationTreeAcl,
+        AncestorReplacementRisk
+    }
+
     private enum TokenInformationClass
     {
         Groups = 2,
@@ -770,6 +896,28 @@ internal static class WindowsStartupRegistrationSecurityValidator
     {
         public uint GroupCount;
         public SidAndAttributes FirstGroup;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct FileTime
+    {
+        public uint DateTimeLow;
+        public uint DateTimeHigh;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ByHandleFileInformation
+    {
+        public uint FileAttributes;
+        public FileTime CreationTime;
+        public FileTime LastAccessTime;
+        public FileTime LastWriteTime;
+        public uint VolumeSerialNumber;
+        public uint FileSizeHigh;
+        public uint FileSizeLow;
+        public uint NumberOfLinks;
+        public uint FileIndexHigh;
+        public uint FileIndexLow;
     }
 
     [DllImport("kernel32.dll", ExactSpelling = true)]
@@ -846,4 +994,10 @@ internal static class WindowsStartupRegistrationSecurityValidator
 
     [DllImport("kernel32.dll", ExactSpelling = true)]
     private static extern IntPtr LocalFree(IntPtr memory);
+
+    [DllImport("kernel32.dll", ExactSpelling = true, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetFileInformationByHandle(
+        SafeFileHandle handle,
+        out ByHandleFileInformation fileInformation);
 }

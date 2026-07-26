@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Forms;
 using System.Security.Principal;
@@ -357,10 +358,17 @@ public partial class App : System.Windows.Application
                 startupRegistrationErrorMessage);
 
             _settingsWindow.SettingsSaveRequested += (_, request) =>
+            {
+                if (request.StartupRegistrationMode == StartupRegistrationMode.Administrator)
+                {
+                    TryEnsureAdministratorDirectoryTrusted();
+                }
+
                 _settingsSaveTransaction.Execute(
                     request.Settings,
                     request.PostProcessingConfig,
                     request.StartupRegistrationMode);
+            };
 
             _settingsWindow.Closed += (_, _) => _settingsWindow = null;
             _settingsWindow.Show();
@@ -426,6 +434,8 @@ public partial class App : System.Windows.Application
             return;
         }
 
+        TryEnsureAdministratorDirectoryTrusted();
+
         var result = _elevationService.RestartAsAdministrator();
         if (result.WasStarted)
         {
@@ -445,6 +455,78 @@ public partial class App : System.Windows.Application
         {
             _logger.Error($"托盘请求管理员模式启动失败：{result.Message}");
             _notificationService.Error(AppInfo.Title, $"请求管理员模式启动失败：{result.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 提权前的前置修复步骤：仅当校验失败的原因确定属于"应用安装目录自身的 ACL/属主问题"
+    /// 时才提议修复，用户确认后单独提权 icacls.exe 修复（绝不提权应用自己的 exe/cmd 包装
+    /// 文件，理由见 <see cref="WindowsStartupAclRepairService"/> 顶部说明）。修复成功与否
+    /// 都不在这里分支——调用方随后仍会走既有的 <c>RestartAsAdministrator</c>/<c>SetMode</c>，
+    /// 那里对未改动的 <see cref="WindowsStartupRegistrationSecurityValidator.Validate"/> 的
+    /// 重新调用才是唯一权威判定。刻意不接入 <c>--admin</c> 命令行路径和计划任务维护的内部
+    /// 二次校验——那两处是无人值守场景，不应该弹确认对话框。
+    /// </summary>
+    private void TryEnsureAdministratorDirectoryTrusted()
+    {
+        if (_logger is null)
+        {
+            return;
+        }
+
+        var executablePath = Environment.ProcessPath;
+        var userSid = ResolveCurrentUserSid();
+        if (string.IsNullOrWhiteSpace(executablePath) || string.IsNullOrWhiteSpace(userSid))
+        {
+            return;
+        }
+
+        string? directory;
+        bool isRepairable;
+        try
+        {
+            directory = Path.GetDirectoryName(Path.GetFullPath(executablePath));
+            isRepairable = directory is not null &&
+                WindowsStartupRegistrationSecurityValidator.IsRepairableAclFailure(executablePath, userSid);
+        }
+        catch (Exception ex)
+        {
+            _logger.Warn($"检测安装目录权限是否可自动修复时失败：{ex.Message}");
+            return;
+        }
+
+        if (!isRepairable || directory is null)
+        {
+            return;
+        }
+
+        var confirmed = System.Windows.MessageBox.Show(
+            $"检测到安装目录允许当前用户修改，需要额外一次管理员确认来修复权限（仅限本程序目录）：\n{directory}\n是否现在修复？",
+            AppInfo.Title,
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning) == MessageBoxResult.Yes;
+        if (!confirmed)
+        {
+            return;
+        }
+
+        var repairResult = new WindowsStartupAclRepairService().Repair(directory, userSid);
+        if (repairResult.WasFailed)
+        {
+            _logger.Error($"安装目录权限修复失败：{repairResult.Message}");
+            System.Windows.MessageBox.Show(
+                $"安装目录权限修复失败，接下来的操作大概率仍会报告原有的权限错误：\n{repairResult.Message}",
+                AppInfo.Title,
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        else if (repairResult.WasCanceled)
+        {
+            _logger.Warn($"安装目录权限修复已取消：{repairResult.Message}");
+        }
+        else
+        {
+            _logger.Info("安装目录权限修复完成。");
         }
     }
 

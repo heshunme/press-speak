@@ -53,6 +53,8 @@ Core / App 边界原则：能在纯 `net8.0` 零警告编译的进 Core（含仅
 
 `WindowsStartupRegistrationSecurityValidator`（846 行）+ `WindowsStartupRegistrationPlatform`（576 行）+ command builder / contracts / SDDL 合计约 2400 行，接近仓库四分之一，比 ASR 主链路还大，而交付的功能是"开机自启动（含管理员模式）"。安全校验严谨是对的，但自研整套"可信发布目录校验 + 计划任务 + SDDL"的长期维护成本很高（每一行都是安全敏感代码）。若产品走向正式分发，建议把"安装/信任边界"作为整体重新设计（MSI/MSIX 安装器承担信任边界），而非继续在应用内累积此类代码。本轮不改动该区域逻辑。
 
+**2026-07 补充**：为支持自定义安装目录（如非 C 盘）下的管理员提权，新增了 `WindowsStartupAclRepairService`（App）+ `StartupRegistrationCommandBuilder.BuildAclRepairCommandLine`（Core）——检测到失败原因仅是"应用安装目录自身 ACL/属主问题"时，单独提权 Windows 自带的 `icacls.exe` 修复，再走原有不变的校验/提权流程；绝不放松 `Validate()` 本身，也绝不提权应用自己的 exe/cmd 包装文件（避免自举信任的提权漏洞，详见该服务类顶部注释）。这进一步增加了本区域的代码量，没有改变本条发现的结论——是否走安装器路线仍是后续方向性问题，只是让"自定义安装目录"这个此前完全不可用的场景在现有架构下变得可用。
+
 ## 发现 6：横切面欠账（低优先级，部分顺带修复）
 
 - **品牌漂移泄漏到用户界面**：产品叫 Press Speak，但 `"HsAsrDictation"` 作为窗口/通知标题硬编码约 36 处。应收拢为单一常量（随发现 3 顺带处理）。

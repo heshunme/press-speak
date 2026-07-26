@@ -130,4 +130,59 @@ public sealed class WindowsStartupRegistrationSecurityValidatorTests
                 securityDescriptor,
                 isDirectory: false));
     }
+
+    [Fact]
+    public void Validate_OnNonWindows_FailsWithPlatformMessage()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var result = WindowsStartupRegistrationSecurityValidator.Validate(
+            Path.Combine(Path.GetTempPath(), "any.exe"),
+            StandardUserSid);
+
+        Assert.False(result.WasSuccessful);
+        Assert.Equal("管理员登录自启动仅支持 Windows。", result.Message);
+    }
+
+    [Fact]
+    public void IsRepairableAclFailure_OnNonWindows_ReturnsFalse()
+    {
+        // 非 Windows 平台上 ValidateCore 返回 Other 类别（"仅支持 Windows"），
+        // 不属于 ApplicationTreeAcl，不应被误判为可自动修复。
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        Assert.False(WindowsStartupRegistrationSecurityValidator.IsRepairableAclFailure(
+            Path.Combine(Path.GetTempPath(), "any.exe"),
+            StandardUserSid));
+    }
+
+    [Fact]
+    public void HasHardLink_OnDirectoryWithOnlyRegularFiles_ReturnsFalse()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var directory = Path.Combine(Path.GetTempPath(), $"hs-asr-hardlink-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            File.WriteAllText(Path.Combine(directory, "a.txt"), "a");
+            File.WriteAllText(Path.Combine(directory, "b.txt"), "b");
+
+            Assert.False(WindowsStartupRegistrationSecurityValidator.HasHardLink(directory, out var offendingPath));
+            Assert.Null(offendingPath);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
 }
