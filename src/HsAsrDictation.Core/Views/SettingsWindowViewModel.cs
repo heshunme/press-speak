@@ -38,6 +38,7 @@ public sealed class SettingsWindowViewModel : INotifyPropertyChanged
         _candidateHotkey = effectiveHotkey.CreateCopy();
 
         SelectedDeviceName = settings.PreferredInputDeviceName;
+        HotwordsText = settings.Hotwords;
         OfflineModelRootPath = settings.OfflineModelRootPath;
         StreamingModelRootPath = settings.StreamingModelRootPath;
         AllowClipboardFallback = settings.AllowClipboardFallback;
@@ -73,6 +74,9 @@ public sealed class SettingsWindowViewModel : INotifyPropertyChanged
     public PostProcessingRulesViewModel PostProcessing { get; }
 
     public string? SelectedDeviceName { get; set; }
+
+    /// <summary>热词编辑文本（每行一个词，允许逗号/分号分隔，保存时统一规范化）。</summary>
+    public string HotwordsText { get; set; }
 
     public string OfflineModelRootPath { get; set; }
 
@@ -209,7 +213,8 @@ public sealed class SettingsWindowViewModel : INotifyPropertyChanged
             EnableStreamingPreview = EnableStreamingPreview,
             MaxRecordingDurationSeconds = maxRecordingDurationSeconds,
             HotkeyReleaseTailDurationMilliseconds = hotkeyReleaseTailDurationMilliseconds,
-            Hotkey = CandidateHotkey.CreateCopy()
+            Hotkey = CandidateHotkey.CreateCopy(),
+            Hotwords = HotwordsText
         };
     }
 

@@ -1,3 +1,4 @@
+using HsAsrDictation.Asr;
 using HsAsrDictation.Hotkeys;
 using HsAsrDictation.Services;
 using System.IO;
@@ -39,6 +40,9 @@ public sealed class AppSettings
 
     public int HotkeyReleaseTailDurationMilliseconds { get; init; } = DefaultHotkeyReleaseTailDurationMilliseconds;
 
+    /// <summary>识别热词（每行一个词的规范存储形式），仅作用于离线 FunASR-Nano 引擎。</summary>
+    public string Hotwords { get; init; } = string.Empty;
+
     public AppSettings Normalize()
     {
         var modelRootPath = string.IsNullOrWhiteSpace(ModelRootPath)
@@ -77,7 +81,8 @@ public sealed class AppSettings
             RecognitionMode = RecognitionMode,
             EnableStreamingPreview = EnableStreamingPreview,
             MaxRecordingDurationSeconds = maxRecordingDurationSeconds,
-            HotkeyReleaseTailDurationMilliseconds = hotkeyReleaseTailDurationMilliseconds
+            HotkeyReleaseTailDurationMilliseconds = hotkeyReleaseTailDurationMilliseconds,
+            Hotwords = HotwordsNormalizer.NormalizeToStorage(Hotwords)
         };
     }
 

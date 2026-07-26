@@ -11,6 +11,9 @@
   <application xmlns="urn:schemas-microsoft-com:asm.v3">
     <windowsSettings>
       <longPathAware xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">true</longPathAware>
+      <!-- sherpa-onnx C# 绑定的 config 字符串按 ANSI（LPStr）marshal，
+           把进程 ANSI 代码页固定为 UTF-8，保证中文热词与中文 prompt 不被系统代码页（如 GBK）转码破坏。 -->
+      <activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>
     </windowsSettings>
   </application>
 </assembly>

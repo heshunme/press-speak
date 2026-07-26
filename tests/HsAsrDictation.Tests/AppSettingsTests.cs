@@ -76,4 +76,25 @@ public sealed class AppSettingsTests
             AppSettings.MaxHotkeyReleaseTailDurationMilliseconds,
             normalizedTooLarge.HotkeyReleaseTailDurationMilliseconds);
     }
+
+    [Fact]
+    public void Normalize_CanonicalizesHotwordsToNewlineSeparatedStorage()
+    {
+        var settings = new AppSettings
+        {
+            Hotwords = "张三, 李四；\n张三\n  "
+        };
+
+        var normalized = settings.Normalize();
+
+        Assert.Equal("张三\n李四", normalized.Hotwords);
+    }
+
+    [Fact]
+    public void Normalize_KeepsHotwordsEmpty_ByDefault()
+    {
+        var normalized = new AppSettings().Normalize();
+
+        Assert.Equal(string.Empty, normalized.Hotwords);
+    }
 }

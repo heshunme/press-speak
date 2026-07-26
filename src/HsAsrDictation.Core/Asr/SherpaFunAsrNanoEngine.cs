@@ -16,6 +16,7 @@ public sealed class SherpaFunAsrNanoEngine : IAsrEngine
     private readonly SemaphoreSlim _initLock = new(1, 1);
     private OfflineRecognizer? _recognizer;
     private string? _activeModelDirectory;
+    private string? _activeHotwords;
 
     public SherpaFunAsrNanoEngine(
         IModelProvisioningService modelProvisioningService,
@@ -46,8 +47,13 @@ public sealed class SherpaFunAsrNanoEngine : IAsrEngine
                 throw new InvalidOperationException(ready.ErrorMessage ?? "模型不可用。");
             }
 
+            // 热词经 LLM prompt 注入，属于识别器构造期配置：内容变化必须重建识别器，
+            // 因此复用判断使用"模型目录 + 热词"组合指纹。
+            var hotwords = HotwordsNormalizer.NormalizeToStorage(_settingsService.Current.Hotwords);
+
             if (_recognizer is not null &&
-                string.Equals(_activeModelDirectory, ready.ModelDirectory, StringComparison.OrdinalIgnoreCase))
+                string.Equals(_activeModelDirectory, ready.ModelDirectory, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(_activeHotwords, hotwords, StringComparison.Ordinal))
             {
                 return;
             }
@@ -57,6 +63,10 @@ public sealed class SherpaFunAsrNanoEngine : IAsrEngine
             config.ModelConfig.FunAsrNano.LLM = Path.Combine(ready.ModelDirectory, "llm.int8.onnx");
             config.ModelConfig.FunAsrNano.Embedding = Path.Combine(ready.ModelDirectory, "embedding.int8.onnx");
             config.ModelConfig.FunAsrNano.Tokenizer = Path.Combine(ready.ModelDirectory, "Qwen3-0.6B");
+            config.ModelConfig.FunAsrNano.Hotwords = hotwords;
+            // C# 绑定默认 Itn=0（与上游 Python 默认 itn=True 不一致），且 Itn=0 会让 prompt 追加
+            // "不进行文本规整"。听写场景期望数字/日期按书面形式输出，这里显式启用 ITN。
+            config.ModelConfig.FunAsrNano.Itn = 1;
             config.ModelConfig.Tokens = string.Empty;
             config.ModelConfig.Debug = 0;
 
@@ -69,6 +79,7 @@ public sealed class SherpaFunAsrNanoEngine : IAsrEngine
                 _recognizer?.Dispose();
                 _recognizer = recognizer;
                 _activeModelDirectory = ready.ModelDirectory;
+                _activeHotwords = hotwords;
             }
             finally
             {
@@ -160,6 +171,7 @@ public sealed class SherpaFunAsrNanoEngine : IAsrEngine
             _recognizer?.Dispose();
             _recognizer = null;
             _activeModelDirectory = null;
+            _activeHotwords = null;
         }
         finally
         {

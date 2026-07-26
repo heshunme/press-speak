@@ -109,6 +109,34 @@ public sealed class SettingsWindowViewModelTests
         Assert.Null(viewModel.DesiredStartupRegistrationMode);
     }
 
+    [Fact]
+    public void ToSettings_CarriesHotwordsText_AndNormalizeCanonicalizesIt()
+    {
+        var viewModel = CreateViewModel(StartupRegistrationMode.Disabled);
+        viewModel.HotwordsText = "张三, 李四；张三";
+
+        var settings = viewModel.ToSettings(
+            AppSettings.DefaultMaxRecordingDurationSeconds,
+            AppSettings.DefaultHotkeyReleaseTailDurationMilliseconds);
+
+        Assert.Equal("张三, 李四；张三", settings.Hotwords);
+        Assert.Equal("张三\n李四", settings.Normalize().Hotwords);
+    }
+
+    [Fact]
+    public void Constructor_InitializesHotwordsTextFromSettings()
+    {
+        var settings = new AppSettings { Hotwords = "张三\n李四" };
+
+        var viewModel = new SettingsWindowViewModel(
+            settings,
+            [],
+            new PostProcessingConfig(),
+            StartupRegistrationMode.Disabled);
+
+        Assert.Equal("张三\n李四", viewModel.HotwordsText);
+    }
+
     private static SettingsWindowViewModel CreateViewModel(
         StartupRegistrationMode? mode,
         string? startupRegistrationErrorMessage = null) =>
