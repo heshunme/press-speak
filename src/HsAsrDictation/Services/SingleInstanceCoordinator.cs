@@ -130,7 +130,7 @@ public sealed class SingleInstanceStartupResult
         ShouldContinueStartup = true
     };
 
-    public static SingleInstanceStartupResult ExitWithMessage(string message) => new()
+    public static SingleInstanceStartupResult ExitWithMessage(string? message) => new()
     {
         ShouldContinueStartup = false,
         ExitMessage = message

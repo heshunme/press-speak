@@ -17,6 +17,17 @@ public sealed class SingleInstanceLaunchMessagingTests
     }
 
     [Fact]
+    public void BuildAlreadyRunningMessage_ReturnsNull_ForAutoStartConflict()
+    {
+        var message = SingleInstanceLaunchMessaging.BuildAlreadyRunningMessage(
+            PrivilegeMode.Standard,
+            PrivilegeMode.Standard,
+            StartupOptions.Parse([StartupOptions.AutoStartFlag]));
+
+        Assert.Null(message);
+    }
+
+    [Fact]
     public void BuildAlreadyRunningMessage_ReturnsManualUpgradeMessage_ForAdminRequestAgainstStandardInstance()
     {
         var message = SingleInstanceLaunchMessaging.BuildAlreadyRunningMessage(

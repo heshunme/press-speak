@@ -4,25 +4,31 @@ using System.Runtime.CompilerServices;
 using HsAsrDictation.Audio;
 using HsAsrDictation.Hotkeys;
 using HsAsrDictation.PostProcessing.Models;
+using HsAsrDictation.Services;
 using HsAsrDictation.Settings;
 
 namespace HsAsrDictation.Views;
 
-    public sealed class SettingsWindowViewModel : INotifyPropertyChanged
-    {
+public sealed class SettingsWindowViewModel : INotifyPropertyChanged
+{
     private const string ActiveHotkeyCapturePrompt = "请按下要作为热键的按键或组合，松开全部按键后完成录入，Esc 取消。";
+    private const string DefaultStartupRegistrationErrorMessage = "无法读取开机自启状态，本次保存不会更改该设置。";
 
     private readonly HotkeyGesture _runtimeHotkey;
     private HotkeyGesture _candidateHotkey;
     private string _hotkeyCapturePrompt = string.Empty;
     private bool _isCapturingHotkey;
+    private bool _startWithWindows;
+    private bool _startWithWindowsAsAdministrator;
 
     public SettingsWindowViewModel(
         AppSettings settings,
         IReadOnlyList<AudioDeviceInfo> devices,
         PostProcessingConfig postProcessingConfig,
+        StartupRegistrationMode? startupRegistrationMode,
         HotkeyGesture? runtimeHotkey = null,
-        string? currentPrivilegeModeText = null)
+        string? currentPrivilegeModeText = null,
+        string? startupRegistrationErrorMessage = null)
     {
         var effectiveHotkey = (runtimeHotkey ?? settings.Hotkey).CreateCopy();
         Devices = new ObservableCollection<AudioDeviceInfo>(devices);
@@ -38,6 +44,14 @@ namespace HsAsrDictation.Views;
         AutoDownloadModel = settings.AutoDownloadModel;
         EnablePunctuation = settings.EnablePunctuation;
         EnableStreamingPreview = settings.EnableStreamingPreview;
+        IsStartupRegistrationAvailable = startupRegistrationMode.HasValue;
+        StartupRegistrationErrorMessage = string.IsNullOrWhiteSpace(startupRegistrationErrorMessage)
+            ? IsStartupRegistrationAvailable
+                ? string.Empty
+                : DefaultStartupRegistrationErrorMessage
+            : startupRegistrationErrorMessage;
+        _startWithWindows = startupRegistrationMode is not null and not StartupRegistrationMode.Disabled;
+        _startWithWindowsAsAdministrator = startupRegistrationMode == StartupRegistrationMode.Administrator;
         MaxRecordingDurationSecondsText = settings.MaxRecordingDurationSeconds.ToString();
         HotkeyReleaseTailDurationMillisecondsText = settings.HotkeyReleaseTailDurationMilliseconds.ToString();
         SelectedRecognitionMode = RecognitionModes.First(x => x.Mode == settings.RecognitionMode);
@@ -71,6 +85,58 @@ namespace HsAsrDictation.Views;
     public bool EnablePunctuation { get; set; }
 
     public bool EnableStreamingPreview { get; set; }
+
+    public bool StartWithWindows
+    {
+        get => _startWithWindows;
+        set
+        {
+            var effectiveValue = IsStartupRegistrationAvailable && value;
+            if (!SetProperty(ref _startWithWindows, effectiveValue))
+            {
+                return;
+            }
+
+            if (!effectiveValue)
+            {
+                StartWithWindowsAsAdministrator = false;
+            }
+
+            OnPropertyChanged(nameof(CanConfigureAdministratorStartup));
+            OnPropertyChanged(nameof(DesiredStartupRegistrationMode));
+        }
+    }
+
+    public bool StartWithWindowsAsAdministrator
+    {
+        get => _startWithWindowsAsAdministrator;
+        set
+        {
+            var effectiveValue = CanConfigureAdministratorStartup && value;
+            if (SetProperty(ref _startWithWindowsAsAdministrator, effectiveValue))
+            {
+                OnPropertyChanged(nameof(DesiredStartupRegistrationMode));
+            }
+        }
+    }
+
+    public bool IsStartupRegistrationAvailable { get; }
+
+    public bool CanConfigureAdministratorStartup => IsStartupRegistrationAvailable && StartWithWindows;
+
+    public bool HasStartupRegistrationError =>
+        !string.IsNullOrWhiteSpace(StartupRegistrationErrorMessage);
+
+    public string StartupRegistrationErrorMessage { get; }
+
+    public StartupRegistrationMode? DesiredStartupRegistrationMode =>
+        !IsStartupRegistrationAvailable
+            ? null
+            : !StartWithWindows
+                ? StartupRegistrationMode.Disabled
+                : StartWithWindowsAsAdministrator
+                    ? StartupRegistrationMode.Administrator
+                    : StartupRegistrationMode.Standard;
 
     public string MaxRecordingDurationSecondsText { get; set; }
 

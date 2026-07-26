@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text.Json;
 using HsAsrDictation.Logging;
+using HsAsrDictation.Services;
 
 namespace HsAsrDictation.Settings;
 
@@ -53,9 +54,11 @@ public sealed class SettingsService
 
     public void Save(AppSettings settings)
     {
-        Current = settings.Normalize();
-        Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath)!);
-        File.WriteAllText(_settingsPath, JsonSerializer.Serialize(Current, _serializerOptions));
+        var normalizedSettings = settings.Normalize();
+        AtomicFileWriter.WriteAllText(
+            _settingsPath,
+            JsonSerializer.Serialize(normalizedSettings, _serializerOptions));
+        Current = normalizedSettings;
         _logger.Info($"设置已保存：{_settingsPath}");
     }
 }

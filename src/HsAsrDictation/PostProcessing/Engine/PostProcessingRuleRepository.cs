@@ -4,6 +4,7 @@ using System.IO;
 using HsAsrDictation.Logging;
 using HsAsrDictation.PostProcessing.Abstractions;
 using HsAsrDictation.PostProcessing.Models;
+using HsAsrDictation.Services;
 
 namespace HsAsrDictation.PostProcessing.Engine;
 
@@ -39,7 +40,9 @@ public sealed class PostProcessingRuleRepository : IPostProcessingRuleRepository
         Directory.CreateDirectory(Path.GetDirectoryName(_userRulesPath)!);
         var defaults = LoadDefaultConfig();
         var userConfig = BuildUserConfig(config, defaults);
-        File.WriteAllText(_userRulesPath, JsonSerializer.Serialize(userConfig, _serializerOptions));
+        AtomicFileWriter.WriteAllText(
+            _userRulesPath,
+            JsonSerializer.Serialize(userConfig, _serializerOptions));
         _logger.Info($"后处理用户规则已保存：{_userRulesPath}");
     }
 

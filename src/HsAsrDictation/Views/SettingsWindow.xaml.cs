@@ -5,7 +5,9 @@ using HsAsrDictation.Hotkeys;
 using HsAsrDictation.Logging;
 using HsAsrDictation.PostProcessing.Abstractions;
 using HsAsrDictation.PostProcessing.Engine;
+using HsAsrDictation.PostProcessing.Models;
 using HsAsrDictation.PostProcessing.Validation;
+using HsAsrDictation.Services;
 using HsAsrDictation.Settings;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 
@@ -34,7 +36,9 @@ public partial class SettingsWindow : Window
         LocalLogService logger,
         IPostProcessingRuleRepository postProcessingRuleRepository,
         IPostProcessingService postProcessingService,
-        string currentPrivilegeModeText)
+        string currentPrivilegeModeText,
+        StartupRegistrationMode? startupRegistrationMode,
+        string? startupRegistrationErrorMessage = null)
     {
         InitializeComponent();
         _hotkeyManager = hotkeyManager;
@@ -48,12 +52,14 @@ public partial class SettingsWindow : Window
             currentSettings,
             devices,
             _postProcessingRuleRepository.Load(),
+            startupRegistrationMode,
             _hotkeyManager.CurrentGesture,
-            currentPrivilegeModeText);
+            currentPrivilegeModeText,
+            startupRegistrationErrorMessage);
         DataContext = _viewModel;
     }
 
-    public event EventHandler<AppSettings>? SettingsSaved;
+    public event EventHandler<SettingsSaveRequestedEventArgs>? SettingsSaveRequested;
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
@@ -120,14 +126,18 @@ public partial class SettingsWindow : Window
             hotkeyReleaseTailDurationMilliseconds);
         try
         {
-            _postProcessingRuleRepository.Save(config);
-            SettingsSaved?.Invoke(this, updatedSettings);
+            SettingsSaveRequested?.Invoke(
+                this,
+                new SettingsSaveRequestedEventArgs(
+                    updatedSettings,
+                    config,
+                    _viewModel.DesiredStartupRegistrationMode));
             ResumeRuntimeHotkeyIfNeeded();
             Close();
         }
         catch (Exception ex)
         {
-            System.Windows.MessageBox.Show(this, $"保存后处理规则失败：{ex.Message}", "HsAsrDictation");
+            System.Windows.MessageBox.Show(this, $"保存设置失败：{ex.Message}", "HsAsrDictation");
         }
     }
 
@@ -367,4 +377,23 @@ public partial class SettingsWindow : Window
 
     private static string FormatEventData(HotkeyEventData keyEvent) =>
         $"vk=0x{keyEvent.VirtualKey:X2}, scan=0x{keyEvent.ScanCode:X2}, extended={keyEvent.IsExtendedKey}, altContext={keyEvent.IsAltContext}, injected={keyEvent.IsInjected}, keyDown={keyEvent.IsKeyDown}";
+}
+
+public sealed class SettingsSaveRequestedEventArgs : EventArgs
+{
+    public SettingsSaveRequestedEventArgs(
+        AppSettings settings,
+        PostProcessingConfig postProcessingConfig,
+        StartupRegistrationMode? startupRegistrationMode)
+    {
+        Settings = settings;
+        PostProcessingConfig = postProcessingConfig;
+        StartupRegistrationMode = startupRegistrationMode;
+    }
+
+    public AppSettings Settings { get; }
+
+    public PostProcessingConfig PostProcessingConfig { get; }
+
+    public StartupRegistrationMode? StartupRegistrationMode { get; }
 }

@@ -167,6 +167,19 @@
                         <CheckBox Content="SendInput 失败时允许剪贴板回退" IsChecked="{Binding AllowClipboardFallback}" />
                         <CheckBox Content="启用标点" IsChecked="{Binding EnablePunctuation}" />
                         <CheckBox Content="启用实时流式预览" IsChecked="{Binding EnableStreamingPreview}" />
+                        <CheckBox Content="登录 Windows 后自动启动"
+                                  IsChecked="{Binding StartWithWindows}"
+                                  IsEnabled="{Binding IsStartupRegistrationAvailable}" />
+                        <CheckBox Margin="20,0,0,0"
+                                  Content="以管理员模式自动启动（仅更改设置时弹 UAC）"
+                                  IsChecked="{Binding StartWithWindowsAsAdministrator}"
+                                  IsEnabled="{Binding CanConfigureAdministratorStartup}"
+                                  ToolTip="仅允许从普通权限进程不可修改的 NTFS/ReFS 安装目录启用。" />
+                        <TextBlock Margin="20,2,0,0"
+                                   Foreground="#FFC62828"
+                                   Text="{Binding StartupRegistrationErrorMessage}"
+                                   TextWrapping="Wrap"
+                                   Visibility="{Binding HasStartupRegistrationError, Converter={StaticResource BoolToVisibilityConverter}}" />
                     </StackPanel>
 
                     <Border Grid.Row="8"

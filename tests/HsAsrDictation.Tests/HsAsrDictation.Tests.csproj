@@ -37,9 +37,16 @@
     <Compile Include="..\..\src\HsAsrDictation\Interop\Win32.cs" Link="Source\Interop\Win32.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Notifications\INotificationService.cs" Link="Source\Notifications\INotificationService.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Services\AppPaths.cs" Link="Source\Services\AppPaths.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Services\AtomicFileWriter.cs" Link="Source\Services\AtomicFileWriter.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Services\PrivilegeMode.cs" Link="Source\Services\PrivilegeMode.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Services\SingleInstanceLaunchMessaging.cs" Link="Source\Services\SingleInstanceLaunchMessaging.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Services\StartupRegistrationCommandBuilder.cs" Link="Source\Services\StartupRegistrationCommandBuilder.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Services\StartupRegistrationContracts.cs" Link="Source\Services\StartupRegistrationContracts.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Services\StartupRegistrationService.cs" Link="Source\Services\StartupRegistrationService.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Services\StartupTaskSecurityDescriptor.cs" Link="Source\Services\StartupTaskSecurityDescriptor.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Services\StartupOptions.cs" Link="Source\Services\StartupOptions.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Services\WindowsStartupRegistrationPlatform.cs" Link="Source\Services\WindowsStartupRegistrationPlatform.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Services\WindowsStartupRegistrationSecurityValidator.cs" Link="Source\Services\WindowsStartupRegistrationSecurityValidator.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Models\ModelManifest.cs" Link="Source\ModelManifest.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Models\PunctuationModelManifest.cs" Link="Source\PunctuationModelManifest.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Models\IPunctuationModelProvisioningService.cs" Link="Source\IPunctuationModelProvisioningService.cs" />
@@ -54,6 +61,9 @@
     <Compile Include="..\..\src\HsAsrDictation\Asr\SherpaOfflinePunctuationService.cs" Link="Source\Asr\SherpaOfflinePunctuationService.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Settings\AppSettings.cs" Link="Source\Settings\AppSettings.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Settings\RecognitionMode.cs" Link="Source\Settings\RecognitionMode.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Views\PostProcessingRulesViewModel.cs" Link="Source\Views\PostProcessingRulesViewModel.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Views\RuleItemViewModel.cs" Link="Source\Views\RuleItemViewModel.cs" />
+    <Compile Include="..\..\src\HsAsrDictation\Views\SettingsWindowViewModel.cs" Link="Source\Views\SettingsWindowViewModel.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyEventData.cs" Link="Source\Hotkeys\HotkeyEventData.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyEventTranslator.cs" Link="Source\Hotkeys\HotkeyEventTranslator.cs" />
     <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyPhysicalKey.cs" Link="Source\Hotkeys\HotkeyPhysicalKey.cs" />

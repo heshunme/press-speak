@@ -2,11 +2,16 @@ namespace HsAsrDictation.Services;
 
 public static class SingleInstanceLaunchMessaging
 {
-    public static string BuildAlreadyRunningMessage(
+    public static string? BuildAlreadyRunningMessage(
         PrivilegeMode? existingMode,
         PrivilegeMode currentMode,
         StartupOptions options)
     {
+        if (options.IsAutoStart)
+        {
+            return null;
+        }
+
         if (options.ElevationApplied && currentMode == PrivilegeMode.Administrator)
         {
             return "管理员模式切换尚未完成，请稍后重试。";
