@@ -64,7 +64,9 @@ bash scripts/publish-win-x64.sh Release
 
 ### 权限与自启动安全模型（安全敏感区）
 
-`--admin` 提升和管理员模式登录自启动都有严格的安全校验，核心在 `Services/WindowsStartupRegistrationSecurityValidator.cs` 和 `ElevationService.cs`：只允许从普通权限进程不可修改的本机固定 NTFS/ReFS 发布目录发起（目录/文件只能由 SYSTEM、Administrators、TrustedInstaller 修改；源码目录、bin 输出、网络盘、SUBST 盘、可移动盘、重解析点一律拒绝），且必须是当前账号本人确认 UAC。改动这一区域时不要放宽校验，并同步更新相关测试（`StartupRegistrationServiceTests`、`WindowsStartupRegistrationSecurityValidatorTests`、`StartupTaskSecurityDescriptorTests`）。
+`--admin` 提升和管理员模式登录自启动都有严格的安全校验，核心在 `Services/WindowsStartupRegistrationSecurityValidator.cs` 和 `ElevationService.cs`：只允许从普通权限进程不可修改的本机固定 NTFS/ReFS 发布目录发起（目录/文件只能由 SYSTEM、Administrators、TrustedInstaller 修改；源码目录、bin 输出、网络盘、SUBST 盘、可移动盘、重解析点一律拒绝），且必须是当前账号本人确认 UAC。改动这一区域时不要放宽校验，并同步更新相关测试（`StartupRegistrationServiceTests`、`WindowsStartupRegistrationSecurityValidatorTests`、`StartupTaskSecurityDescriptorTests`、`StartupRegistrationCommandBuilderAclRepairTests`）。
+
+安装目录自身 ACL/属主不满足上述要求时，`Services/WindowsStartupAclRepairService.cs`（App）可以在用户确认后自愈修复：唯一的提权对象是 Windows 自带的 `icacls.exe`/`cmd.exe`（绝不是应用自己的 exe 或安装目录里的 `.cmd` 包装文件——否则等于在目录仍可被普通用户写入时就提权执行了可能已被篡改的内容，这一约束在该文件顶部注释里标注为不可绕过），修复范围严格限定在应用自身目录，不延伸到上级目录（避免对可能共享的父目录做大范围 ACL 变更）；修复后仍必须由未改动的 `Validate()` 重新判定是否放行，修复结果本身不能作为“可以提权”的依据。`Services/StartupRegistrationCommandBuilder.cs` 里的 `BuildAclRepairCommands`/`BuildAclRepairElevatedArguments` 负责拼接对应的 icacls 命令行——这里踩过三次 cmd.exe 引号/分组语法坑（`ArgumentList` 二次转义、外层括号与 icacls 字面括号冲突、`cmd /C` 剥离首尾引号），改动前请先读这两个方法的注释。
 
 ### 后处理规则引擎
 
