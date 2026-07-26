@@ -8,8 +8,6 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
-    <PackageReference Include="org.k2fsa.sherpa.onnx" Version="1.12.34" />
-    <PackageReference Include="SharpCompress" Version="1.0.0" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
       <PrivateAssets>all</PrivateAssets>
@@ -18,89 +16,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\..\src\HsAsrDictation\Models\AsrModelDefinition.cs" Link="Source\Models\AsrModelDefinition.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Models\AsrModelKind.cs" Link="Source\Models\AsrModelKind.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Models\IModelProvisioningService.cs" Link="Source\Models\IModelProvisioningService.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Models\ModelReadyResult.cs" Link="Source\Models\ModelReadyResult.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Audio\AudioCaptureStopReason.cs" Link="Source\AudioCaptureStopReason.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Audio\AudioCaptureStoppedEventArgs.cs" Link="Source\AudioCaptureStoppedEventArgs.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Audio\AudioChunkAvailableEventArgs.cs" Link="Source\AudioChunkAvailableEventArgs.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Audio\AudioDeviceInfo.cs" Link="Source\AudioDeviceInfo.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Audio\IAudioCaptureService.cs" Link="Source\IAudioCaptureService.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Audio\RecordedAudio.cs" Link="Source\RecordedAudio.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Audio\AudioSilenceTrimmer.cs" Link="Source\AudioSilenceTrimmer.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Foreground\IForegroundContextService.cs" Link="Source\Foreground\IForegroundContextService.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Insertion\InputTargetClassifier.cs" Link="Source\Insertion\InputTargetClassifier.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Insertion\InsertionResult.cs" Link="Source\Insertion\InsertionResult.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Insertion\ITextInsertionService.cs" Link="Source\Insertion\ITextInsertionService.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Logging\LocalLogService.cs" Link="Source\Logging\LocalLogService.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Interop\Win32.cs" Link="Source\Interop\Win32.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Notifications\INotificationService.cs" Link="Source\Notifications\INotificationService.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Services\AppPaths.cs" Link="Source\Services\AppPaths.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Services\AtomicFileWriter.cs" Link="Source\Services\AtomicFileWriter.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Services\PrivilegeMode.cs" Link="Source\Services\PrivilegeMode.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Services\SingleInstanceLaunchMessaging.cs" Link="Source\Services\SingleInstanceLaunchMessaging.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Services\StartupRegistrationCommandBuilder.cs" Link="Source\Services\StartupRegistrationCommandBuilder.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Services\StartupRegistrationContracts.cs" Link="Source\Services\StartupRegistrationContracts.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Services\StartupRegistrationService.cs" Link="Source\Services\StartupRegistrationService.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Services\StartupTaskSecurityDescriptor.cs" Link="Source\Services\StartupTaskSecurityDescriptor.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Services\StartupOptions.cs" Link="Source\Services\StartupOptions.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Services\WindowsStartupRegistrationPlatform.cs" Link="Source\Services\WindowsStartupRegistrationPlatform.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Services\WindowsStartupRegistrationSecurityValidator.cs" Link="Source\Services\WindowsStartupRegistrationSecurityValidator.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Models\ModelManifest.cs" Link="Source\ModelManifest.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Models\PunctuationModelManifest.cs" Link="Source\PunctuationModelManifest.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Models\IPunctuationModelProvisioningService.cs" Link="Source\IPunctuationModelProvisioningService.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Models\PunctuationModelProvisioningService.cs" Link="Source\PunctuationModelProvisioningService.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Asr\AsrResult.cs" Link="Source\Asr\AsrResult.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Asr\StreamingAsrResult.cs" Link="Source\Asr\StreamingAsrResult.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Asr\IAsrEngine.cs" Link="Source\Asr\IAsrEngine.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Asr\IStreamingAsrSession.cs" Link="Source\Asr\IStreamingAsrSession.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Asr\IStreamingAsrEngine.cs" Link="Source\Asr\IStreamingAsrEngine.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Asr\PunctuationRuntimeOptions.cs" Link="Source\Asr\PunctuationRuntimeOptions.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Asr\IPunctuationService.cs" Link="Source\Asr\IPunctuationService.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Asr\SherpaOfflinePunctuationService.cs" Link="Source\Asr\SherpaOfflinePunctuationService.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Settings\AppSettings.cs" Link="Source\Settings\AppSettings.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Settings\RecognitionMode.cs" Link="Source\Settings\RecognitionMode.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Views\PostProcessingRulesViewModel.cs" Link="Source\Views\PostProcessingRulesViewModel.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Views\RuleItemViewModel.cs" Link="Source\Views\RuleItemViewModel.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Views\SettingsWindowViewModel.cs" Link="Source\Views\SettingsWindowViewModel.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyEventData.cs" Link="Source\Hotkeys\HotkeyEventData.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyEventTranslator.cs" Link="Source\Hotkeys\HotkeyEventTranslator.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyPhysicalKey.cs" Link="Source\Hotkeys\HotkeyPhysicalKey.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyPhysicalKeySet.cs" Link="Source\Hotkeys\HotkeyPhysicalKeySet.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyGesture.cs" Link="Source\Hotkeys\HotkeyGesture.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyPressedState.cs" Link="Source\Hotkeys\HotkeyPressedState.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeySuppressionEvaluator.cs" Link="Source\Hotkeys\HotkeySuppressionEvaluator.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyCaptureEvaluator.cs" Link="Source\Hotkeys\HotkeyCaptureEvaluator.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyCaptureParser.cs" Link="Source\Hotkeys\HotkeyCaptureParser.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyActivationEvaluator.cs" Link="Source\Hotkeys\HotkeyActivationEvaluator.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Hotkeys\HotkeyDisplayPresentation.cs" Link="Source\Hotkeys\HotkeyDisplayPresentation.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Overlay\IStatusOverlayService.cs" Link="Source\IStatusOverlayService.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Overlay\DictationOverlayController.cs" Link="Source\DictationOverlayController.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Abstractions\IPostProcessingRule.cs" Link="Source\PostProcessing\Abstractions\IPostProcessingRule.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Abstractions\IPostProcessingRuleFactory.cs" Link="Source\PostProcessing\Abstractions\IPostProcessingRuleFactory.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Abstractions\IPostProcessingRuleRepository.cs" Link="Source\PostProcessing\Abstractions\IPostProcessingRuleRepository.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Abstractions\IPostProcessingService.cs" Link="Source\PostProcessing\Abstractions\IPostProcessingService.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Engine\PostProcessingRuleFactory.cs" Link="Source\PostProcessing\Engine\PostProcessingRuleFactory.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Engine\PostProcessingRuleRepository.cs" Link="Source\PostProcessing\Engine\PostProcessingRuleRepository.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Engine\PostProcessingService.cs" Link="Source\PostProcessing\Engine\PostProcessingService.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Engine\PostProcessingTraceEntry.cs" Link="Source\PostProcessing\Engine\PostProcessingTraceEntry.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Engine\PostProcessingTraceResult.cs" Link="Source\PostProcessing\Engine\PostProcessingTraceResult.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Engine\RuleApplyResult.cs" Link="Source\PostProcessing\Engine\RuleApplyResult.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Engine\RuleExecutionContext.cs" Link="Source\PostProcessing\Engine\RuleExecutionContext.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Models\PostProcessingConfig.cs" Link="Source\PostProcessing\Models\PostProcessingConfig.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Models\RuleDefinition.cs" Link="Source\PostProcessing\Models\RuleDefinition.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Rules\ExactReplaceRule.cs" Link="Source\PostProcessing\Rules\ExactReplaceRule.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Rules\RegexReplaceRule.cs" Link="Source\PostProcessing\Rules\RegexReplaceRule.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Rules\TrimWhitespaceRule.cs" Link="Source\PostProcessing\Rules\TrimWhitespaceRule.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Rules\EnglishAcronymJoinRule.cs" Link="Source\PostProcessing\Rules\EnglishAcronymJoinRule.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Validation\RegexSafetyValidator.cs" Link="Source\PostProcessing\Validation\RegexSafetyValidator.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\PostProcessing\Validation\RuleValidator.cs" Link="Source\PostProcessing\Validation\RuleValidator.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Settings\SettingsService.cs" Link="Source\Settings\SettingsService.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Services\DictationCoordinator.cs" Link="Source\Services\DictationCoordinator.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Services\DictationStatus.cs" Link="Source\Services\DictationStatus.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Services\DictationState.cs" Link="Source\DictationState.cs" />
-    <Compile Include="..\..\src\HsAsrDictation\Services\ModelResidencyManager.cs" Link="Source\Services\ModelResidencyManager.cs" />
-    <EmbeddedResource Include="..\..\src\HsAsrDictation\Resources\PostProcessing\default-rules.json" Link="Resources\PostProcessing\default-rules.json" />
+    <ProjectReference Include="..\..\src\HsAsrDictation.Core\HsAsrDictation.Core.csproj" />
   </ItemGroup>
 </Project>

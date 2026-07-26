@@ -12,6 +12,7 @@ public sealed class ForegroundContext
 
     public bool IsPasswordField { get; init; }
 
+    /// <summary>Windows 下为 System.Windows.Automation.AutomationElement；Core 保持无 UI 依赖，故用 object。</summary>
     public object? FocusedElement { get; init; }
 
     public string FocusedElementName { get; init; } = string.Empty;

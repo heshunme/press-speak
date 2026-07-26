@@ -23,13 +23,18 @@ public sealed class SettingsService
 
     public AppSettings Current { get; private set; }
 
+    /// <summary>设置保存成功后触发（包括保存失败后的回滚性保存）。订阅者据此刷新热键、模型等运行时状态。</summary>
+    public event EventHandler<SettingsChangedEventArgs>? SettingsChanged;
+
     public void Load()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath)!);
 
         if (!File.Exists(_settingsPath))
         {
-            Save(AppSettings.CreateDefault());
+            var defaults = AppSettings.CreateDefault().Normalize();
+            WriteToDisk(defaults);
+            Current = defaults;
             return;
         }
 
@@ -55,10 +60,30 @@ public sealed class SettingsService
     public void Save(AppSettings settings)
     {
         var normalizedSettings = settings.Normalize();
+        WriteToDisk(normalizedSettings);
+        var previousSettings = Current;
+        Current = normalizedSettings;
+        _logger.Info($"设置已保存：{_settingsPath}");
+        SettingsChanged?.Invoke(this, new SettingsChangedEventArgs(previousSettings, normalizedSettings));
+    }
+
+    private void WriteToDisk(AppSettings normalizedSettings)
+    {
         AtomicFileWriter.WriteAllText(
             _settingsPath,
             JsonSerializer.Serialize(normalizedSettings, _serializerOptions));
-        Current = normalizedSettings;
-        _logger.Info($"设置已保存：{_settingsPath}");
     }
+}
+
+public sealed class SettingsChangedEventArgs : EventArgs
+{
+    public SettingsChangedEventArgs(AppSettings previous, AppSettings current)
+    {
+        Previous = previous;
+        Current = current;
+    }
+
+    public AppSettings Previous { get; }
+
+    public AppSettings Current { get; }
 }

@@ -70,7 +70,7 @@ public sealed class TrayIconService : IDisposable
         _notifyIcon = new NotifyIcon
         {
             Visible = true,
-            Text = "HsAsrDictation",
+            Text = AppInfo.Title,
             Icon = SystemIcons.Application,
             ContextMenuStrip = menu
         };

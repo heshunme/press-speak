@@ -15,17 +15,22 @@
 
   <ItemGroup>
     <PackageReference Include="NAudio" Version="2.3.0" />
-    <PackageReference Include="org.k2fsa.sherpa.onnx" Version="1.12.34" />
-    <PackageReference Include="SharpCompress" Version="1.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HsAsrDictation.Core\HsAsrDictation.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <None Update="app.manifest">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </None>
+    <Content Include="Resources\press-speak-admin-autostart.cmd">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <TargetPath>press-speak-admin-autostart.cmd</TargetPath>
+    </Content>
+    <RuntimeHostConfigurationOption Include="System.StartupHookProvider.IsSupported" Value="false" />
   </ItemGroup>
 
-  <ItemGroup>
-    <EmbeddedResource Include="Resources\PostProcessing\default-rules.json" />
-  </ItemGroup>
 </Project>

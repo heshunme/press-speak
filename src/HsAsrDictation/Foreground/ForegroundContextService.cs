@@ -68,14 +68,15 @@ public sealed class ForegroundContextService : IForegroundContextService
 
         var restored = Win32.SetForegroundWindow(context.WindowHandle);
 
-        if (context.FocusedElement is null || InputTargetClassifier.ShouldSkipUiAutomationFocusRestore(context))
+        if (context.FocusedElement is not AutomationElement focusedElement ||
+            InputTargetClassifier.ShouldSkipUiAutomationFocusRestore(context))
         {
             return restored;
         }
 
         try
         {
-            context.FocusedElement.SetFocus();
+            focusedElement.SetFocus();
         }
         catch (Exception ex)
         {

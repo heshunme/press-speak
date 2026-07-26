@@ -9,6 +9,7 @@ public sealed class ModelResidencyManager
     private readonly IModelProvisioningService _modelProvisioningService;
     private readonly IAsrEngine _asrEngine;
     private readonly IStreamingAsrEngine _streamingAsrEngine;
+    private readonly SemaphoreSlim _reconcileLock = new(1, 1);
 
     public ModelResidencyManager(
         IModelProvisioningService modelProvisioningService,
@@ -46,6 +47,24 @@ public sealed class ModelResidencyManager
             ct);
 
     private async Task<ModelResidencyResult> ReconcileAsync(
+        RecognitionMode mode,
+        bool reinitialize,
+        bool allowUnload,
+        Func<AsrModelKind, Task<ModelReadyResult>> provisionAsync,
+        CancellationToken ct)
+    {
+        await _reconcileLock.WaitAsync(ct);
+        try
+        {
+            return await ReconcileCoreAsync(mode, reinitialize, allowUnload, provisionAsync, ct);
+        }
+        finally
+        {
+            _reconcileLock.Release();
+        }
+    }
+
+    private async Task<ModelResidencyResult> ReconcileCoreAsync(
         RecognitionMode mode,
         bool reinitialize,
         bool allowUnload,

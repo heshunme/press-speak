@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 仓库没有 `.sln`，一律直接对项目文件操作：
 
 ```bash
-# 构建 WPF 应用（Linux 上因 EnableWindowsTargeting 也能编译，但无法运行）
+# 构建 WPF 应用（会连带构建 Core；Linux 上因 EnableWindowsTargeting 也能编译，但无法运行）
 dotnet build src/HsAsrDictation/HsAsrDictation.csproj
 
 # 运行（仅 Windows）
@@ -28,14 +28,19 @@ dotnet test tests/HsAsrDictation.Tests/HsAsrDictation.Tests.csproj --filter "Ful
 bash scripts/publish-win-x64.sh Release
 ```
 
-## 测试工程的特殊结构（重要）
+## Core / App 双项目结构（重要）
 
-`tests/HsAsrDictation.Tests` **不引用应用项目**，而是通过 `<Compile Include>` 逐个链接源码文件（见测试 csproj）。原因：应用 target 是 `net8.0-windows10.0.22621.0`，测试 target 是纯 `net8.0`，这样可测逻辑能在 Linux 上跑。
+代码拆成两个项目，命名空间统一沿用 `HsAsrDictation.*`：
 
-由此产生两条硬性约束：
+- `src/HsAsrDictation.Core`（纯 `net8.0`，`RootNamespace=HsAsrDictation`）：所有可在 Linux 上编译和测试的逻辑，包括主链路编排 `DictationCoordinator`、ASR/标点引擎、后处理、设置、自启动纯逻辑与安全校验、ViewModel。仅声明 P/Invoke 的 `Interop/Win32.cs` 与带 `[SupportedOSPlatform("windows")]` 的 `WindowsStartupRegistrationSecurityValidator` 也在 Core（声明可跨平台编译）。包引用：sherpa-onnx、SharpCompress。
+- `src/HsAsrDictation`（`net8.0-windows10.0.22621.0`，WPF/WinForms）：Windows 实现与 UI——`WaveInAudioCaptureService`、`LowLevelKeyboard*`、`ForegroundContextService`、`TextInsertionService`、`ElevationService`、`SingleInstanceCoordinator`、`WindowsStartupRegistrationPlatform`、托盘/浮窗/通知/窗口、组合根 `App.xaml.cs`。包引用：NAudio。引用 Core。
 
-1. 新增可测试的纯逻辑文件后，必须在 `HsAsrDictation.Tests.csproj` 中手动添加对应的 `<Compile Include>` 链接，否则测试工程看不到它。
-2. 被链接进测试的文件（及其依赖闭包）不能引用 WPF/WinForms/Win32 等 Windows-only API。项目惯例是把纯逻辑与 Windows 交互拆开，例如 `StartupRegistrationService`（纯逻辑，被测试）与 `WindowsStartupRegistrationPlatform`（Win32 实现，不进测试），`DictationOverlayController`（逻辑）与 `StatusOverlayService`（UI）。
+约定：
+
+1. 新增纯逻辑放 Core（编译器会强制它不依赖 Windows API），新增 Windows 交互放 App。惯例是把纯逻辑与平台实现拆开，例如 `StartupRegistrationService`（Core，被测试）与 `WindowsStartupRegistrationPlatform`（App）、`DictationOverlayController`（Core）与 `StatusOverlayService`（App）。
+2. `tests/HsAsrDictation.Tests`（纯 `net8.0`）只引用 Core，因此可在 Linux 直接运行。Core 通过 `InternalsVisibleTo` 对 `HsAsrDictation` 与 `HsAsrDictation.Tests` 暴露 internal。
+3. `Foreground/ForegroundContext.FocusedElement` 在 Core 中是 `object?`（Windows 下实际为 `AutomationElement`，由 `ForegroundContextService` cast），保持 Core 无 UI 依赖。
+4. 嵌入的默认后处理规则 `Resources/PostProcessing/default-rules.json` 在 Core 程序集中，逻辑名仍为 `HsAsrDictation.Resources.PostProcessing.default-rules.json`。
 
 ## 架构
 

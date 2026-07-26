@@ -65,25 +65,25 @@ public partial class SettingsWindow : Window
     {
         if (_viewModel.IsCapturingHotkey)
         {
-            System.Windows.MessageBox.Show(this, "请先完成或取消热键录入。", "HsAsrDictation");
+            System.Windows.MessageBox.Show(this, "请先完成或取消热键录入。", AppInfo.Title);
             return;
         }
 
         if (string.IsNullOrWhiteSpace(_viewModel.OfflineModelRootPath))
         {
-            System.Windows.MessageBox.Show(this, "离线模型目录不能为空。", "HsAsrDictation");
+            System.Windows.MessageBox.Show(this, "离线模型目录不能为空。", AppInfo.Title);
             return;
         }
 
         if (string.IsNullOrWhiteSpace(_viewModel.StreamingModelRootPath))
         {
-            System.Windows.MessageBox.Show(this, "流式模型目录不能为空。", "HsAsrDictation");
+            System.Windows.MessageBox.Show(this, "流式模型目录不能为空。", AppInfo.Title);
             return;
         }
 
         if (!int.TryParse(_viewModel.MaxRecordingDurationSecondsText?.Trim(), out var maxRecordingDurationSeconds))
         {
-            System.Windows.MessageBox.Show(this, "单次录音上限必须是整数秒。", "HsAsrDictation");
+            System.Windows.MessageBox.Show(this, "单次录音上限必须是整数秒。", AppInfo.Title);
             return;
         }
 
@@ -93,13 +93,13 @@ public partial class SettingsWindow : Window
             System.Windows.MessageBox.Show(
                 this,
                 $"单次录音上限必须在 {AppSettings.MinMaxRecordingDurationSeconds} 到 {AppSettings.MaxMaxRecordingDurationSeconds} 秒之间。",
-                "HsAsrDictation");
+                AppInfo.Title);
             return;
         }
 
         if (!int.TryParse(_viewModel.HotkeyReleaseTailDurationMillisecondsText?.Trim(), out var hotkeyReleaseTailDurationMilliseconds))
         {
-            System.Windows.MessageBox.Show(this, "松键尾录延迟必须是整数毫秒。", "HsAsrDictation");
+            System.Windows.MessageBox.Show(this, "松键尾录延迟必须是整数毫秒。", AppInfo.Title);
             return;
         }
 
@@ -109,7 +109,7 @@ public partial class SettingsWindow : Window
             System.Windows.MessageBox.Show(
                 this,
                 $"松键尾录延迟必须在 {AppSettings.MinHotkeyReleaseTailDurationMilliseconds} 到 {AppSettings.MaxHotkeyReleaseTailDurationMilliseconds} 毫秒之间。",
-                "HsAsrDictation");
+                AppInfo.Title);
             return;
         }
 
@@ -117,7 +117,7 @@ public partial class SettingsWindow : Window
         var (ok, error) = RuleValidator.ValidateConfig(config);
         if (!ok)
         {
-            System.Windows.MessageBox.Show(this, error, "HsAsrDictation");
+            System.Windows.MessageBox.Show(this, error, AppInfo.Title);
             return;
         }
 
@@ -137,7 +137,7 @@ public partial class SettingsWindow : Window
         }
         catch (Exception ex)
         {
-            System.Windows.MessageBox.Show(this, $"保存设置失败：{ex.Message}", "HsAsrDictation");
+            System.Windows.MessageBox.Show(this, $"保存设置失败：{ex.Message}", AppInfo.Title);
         }
     }
 
@@ -257,7 +257,7 @@ public partial class SettingsWindow : Window
         }
         catch (Exception ex)
         {
-            System.Windows.MessageBox.Show(this, $"恢复默认失败：{ex.Message}", "HsAsrDictation");
+            System.Windows.MessageBox.Show(this, $"恢复默认失败：{ex.Message}", AppInfo.Title);
         }
     }
 
@@ -267,7 +267,7 @@ public partial class SettingsWindow : Window
         var (ok, error) = RuleValidator.ValidateConfig(config);
         if (!ok)
         {
-            System.Windows.MessageBox.Show(this, error, "HsAsrDictation");
+            System.Windows.MessageBox.Show(this, error, AppInfo.Title);
             return;
         }
 
@@ -289,7 +289,7 @@ public partial class SettingsWindow : Window
         }
         catch (Exception ex)
         {
-            System.Windows.MessageBox.Show(this, $"规则测试失败：{ex.Message}", "HsAsrDictation");
+            System.Windows.MessageBox.Show(this, $"规则测试失败：{ex.Message}", AppInfo.Title);
         }
     }
 

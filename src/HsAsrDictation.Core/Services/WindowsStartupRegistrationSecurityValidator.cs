@@ -118,7 +118,7 @@ internal static class WindowsStartupRegistrationSecurityValidator
                     "当前 Windows 账号不属于管理员组，无法配置管理员模式自动启动。");
             }
 
-            using var standardToken = DuplicateAsImpersonationToken(standardSource);
+            using var standardToken = DuplicateAsIdentificationToken(standardSource);
             var pathValidationError = ValidateProtectedApplicationTree(
                 normalizedExecutablePath,
                 standardToken);
@@ -597,11 +597,14 @@ internal static class WindowsStartupRegistrationSecurityValidator
         }
     }
 
-    private static SafeAccessTokenHandle DuplicateAsImpersonationToken(SafeAccessTokenHandle token)
+    private static SafeAccessTokenHandle DuplicateAsIdentificationToken(SafeAccessTokenHandle token)
     {
+        // AccessCheck 只需要 Identification 级的模拟令牌。提升进程经 TokenLinkedToken 取得的
+        // 非提升令牌本身即 Identification 级（无 SeTcbPrivilege 时），请求更高的 Impersonation
+        // 级会以 ERROR_BAD_IMPERSONATION_LEVEL 失败；统一用最低必要级别复制。
         if (!DuplicateToken(
                 token,
-                SecurityImpersonationLevel.Impersonation,
+                SecurityImpersonationLevel.Identification,
                 out var duplicate))
         {
             var error = Marshal.GetLastWin32Error();
