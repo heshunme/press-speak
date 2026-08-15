@@ -52,6 +52,7 @@ public partial class App : System.Windows.Application
     private StartupOptions _startupOptions = StartupOptions.Parse([]);
     private PrivilegeMode _currentPrivilegeMode;
     private NotificationMessage? _pendingStartupNotification;
+    private bool _restartAsAdministratorInProgress;
 
     /// <summary>
     /// 启动分支按固定顺序处理，每个 Handle* 返回 true 表示当前进程已处理完毕并将退出：
@@ -268,8 +269,8 @@ public partial class App : System.Windows.Application
 
         _trayIconService = new TrayIconService(_notificationService, _logger!, _currentPrivilegeMode);
         _trayIconService.SettingsRequested += (_, _) => OpenSettingsWindow();
-        _trayIconService.ModelDownloadRequested += async (_, _) => await _coordinator.RedownloadModelAsync();
-        _trayIconService.ToggleRecordingRequested += async (_, _) => await _coordinator.ToggleRecordingAsync();
+        _trayIconService.ModelDownloadRequested += (_, _) => SafeFireAndForget(() => _coordinator.RedownloadModelAsync());
+        _trayIconService.ToggleRecordingRequested += (_, _) => SafeFireAndForget(() => _coordinator.ToggleRecordingAsync());
         _trayIconService.RestartAsAdministratorRequested += (_, _) => RestartAsAdministratorFromTray();
         _trayIconService.ExitRequested += (_, _) => Shutdown();
 
@@ -283,8 +284,8 @@ public partial class App : System.Windows.Application
         _coordinator.StateChanged += (_, status) =>
             _mediaPlaybackPauseService.OnDictationStateChanged(status);
 
-        _hotkeyManager.Pressed += async (_, _) => await _coordinator.BeginRecordingAsync();
-        _hotkeyManager.Released += async (_, _) => await _coordinator.FinalizeRecordingAfterHotkeyReleaseAsync();
+        _hotkeyManager.Pressed += (_, _) => SafeFireAndForget(() => _coordinator.BeginRecordingAsync());
+        _hotkeyManager.Released += (_, _) => SafeFireAndForget(() => _coordinator.FinalizeRecordingAfterHotkeyReleaseAsync());
 
         _settingsService.SettingsChanged += (_, changed) =>
         {
@@ -374,17 +375,19 @@ public partial class App : System.Windows.Application
                 startupRegistrationMode,
                 startupRegistrationErrorMessage);
 
-            _settingsWindow.SettingsSaveRequested += (_, request) =>
+            _settingsWindow.SettingsSaveRequested += async (_, request) =>
             {
                 if (request.StartupRegistrationMode == StartupRegistrationMode.Administrator)
                 {
                     TryEnsureAdministratorDirectoryTrusted();
                 }
 
-                _settingsSaveTransaction.Execute(
+                // 事务内部会 spawn schtasks.exe 并同步 WaitForExit，放后台执行避免卡住 UI；
+                // 失败异常经由返回的 Task 回传给设置窗统一弹错，错误处理语义不变。
+                await Task.Run(() => _settingsSaveTransaction.Execute(
                     request.Settings,
                     request.PostProcessingConfig,
-                    request.StartupRegistrationMode);
+                    request.StartupRegistrationMode));
             };
 
             _settingsWindow.Closed += (_, _) => _settingsWindow = null;
@@ -451,27 +454,48 @@ public partial class App : System.Windows.Application
             return;
         }
 
+        // 防重入：上一次重启请求还在等待启动包装进程退出时，忽略重复的菜单点击。
+        if (_restartAsAdministratorInProgress)
+        {
+            return;
+        }
+
         TryEnsureAdministratorDirectoryTrusted();
 
-        var result = _elevationService.RestartAsAdministrator();
-        if (result.WasStarted)
-        {
-            _logger.Info("托盘已触发管理员模式重启。");
-            Shutdown();
-            return;
-        }
+        // ElevationService.RestartAsAdministrator 内部最长同步等待启动包装进程 30 秒，
+        // 放后台执行避免托盘点击卡住 UI 线程；结果处理在 await 之后回到 UI 线程。
+        _restartAsAdministratorInProgress = true;
+        SafeFireAndForget(RestartAsAdministratorOnBackgroundAsync);
+    }
 
-        if (result.WasCanceled)
+    private async Task RestartAsAdministratorOnBackgroundAsync()
+    {
+        try
         {
-            _logger.Warn($"托盘管理员模式启动已取消：{result.Message}");
-            _notificationService.Warn(AppInfo.Title, "管理员模式启动已取消，当前实例将继续运行。");
-            return;
-        }
+            var result = await Task.Run(() => _elevationService!.RestartAsAdministrator());
+            if (result.WasStarted)
+            {
+                _logger!.Info("托盘已触发管理员模式重启。");
+                Shutdown();
+                return;
+            }
 
-        if (result.WasFailed)
+            if (result.WasCanceled)
+            {
+                _logger!.Warn($"托盘管理员模式启动已取消：{result.Message}");
+                _notificationService!.Warn(AppInfo.Title, "管理员模式启动已取消，当前实例将继续运行。");
+                return;
+            }
+
+            if (result.WasFailed)
+            {
+                _logger!.Error($"托盘请求管理员模式启动失败：{result.Message}");
+                _notificationService!.Error(AppInfo.Title, $"请求管理员模式启动失败：{result.Message}");
+            }
+        }
+        finally
         {
-            _logger.Error($"托盘请求管理员模式启动失败：{result.Message}");
-            _notificationService.Error(AppInfo.Title, $"请求管理员模式启动失败：{result.Message}");
+            _restartAsAdministratorInProgress = false;
         }
     }
 
@@ -565,6 +589,22 @@ public partial class App : System.Windows.Application
             default:
                 _notificationService.Info(message.Title, message.Message);
                 break;
+        }
+    }
+
+    /// <summary>
+    /// 收敛 async void 事件 lambda 的兜底异常防护：后台链路深处逃逸的异常
+    /// 不再经 async void 抛到 SyncContext 崩进程，而是记日志后吞掉。
+    /// </summary>
+    private async void SafeFireAndForget(Func<Task> action)
+    {
+        try
+        {
+            await action();
+        }
+        catch (Exception ex)
+        {
+            _logger?.Error("异步事件处理发生未处理异常。", ex);
         }
     }
 

@@ -1,3 +1,4 @@
+using HsAsrDictation.Services;
 using HsAsrDictation.Views;
 
 namespace HsAsrDictation.Overlay;
@@ -13,7 +14,7 @@ public sealed class StatusOverlayService : IStatusOverlayService
 
     public void Show(string statusText, string? previewText)
     {
-        RunOnUiThread(() =>
+        UiThreadHelper.RunOnUiThread(() =>
         {
             _window.SetMessage(statusText, previewText);
 
@@ -28,7 +29,7 @@ public sealed class StatusOverlayService : IStatusOverlayService
 
     public void Hide()
     {
-        RunOnUiThread(() =>
+        UiThreadHelper.RunOnUiThread(() =>
         {
             if (_window.IsVisible)
             {
@@ -39,25 +40,12 @@ public sealed class StatusOverlayService : IStatusOverlayService
 
     public void Dispose()
     {
-        RunOnUiThread(() =>
+        UiThreadHelper.RunOnUiThread(() =>
         {
             if (_window.IsLoaded)
             {
                 _window.Close();
             }
         });
-    }
-
-    private static void RunOnUiThread(Action action)
-    {
-        var dispatcher = System.Windows.Application.Current?.Dispatcher;
-
-        if (dispatcher is null || dispatcher.CheckAccess())
-        {
-            action();
-            return;
-        }
-
-        dispatcher.Invoke(action);
     }
 }

@@ -78,12 +78,7 @@ public sealed class TrayIconService : IDisposable
         _notifyIcon.DoubleClick += (_, _) => SettingsRequested?.Invoke(this, EventArgs.Empty);
         notificationService.NotificationRaised += (_, message) =>
         {
-            if (message.Icon == ToolTipIcon.Info)
-            {
-                return;
-            }
-
-            RunOnUiThread(() => _notifyIcon.ShowBalloonTip(3000, message.Title, message.Message, message.Icon));
+            UiThreadHelper.RunOnUiThread(() => _notifyIcon.ShowBalloonTip(3000, message.Title, message.Message, message.Icon));
         };
     }
 
@@ -99,7 +94,7 @@ public sealed class TrayIconService : IDisposable
 
     public void SetStatus(string statusText)
     {
-        RunOnUiThread(() =>
+        UiThreadHelper.RunOnUiThread(() =>
         {
             _statusItem.Text = $"状态：{statusText}（{_privilegeMode.ToDisplayText()}）";
             _notifyIcon.Text = BuildNotifyIconText(statusText);
@@ -108,24 +103,11 @@ public sealed class TrayIconService : IDisposable
 
     public void Dispose()
     {
-        RunOnUiThread(() =>
+        UiThreadHelper.RunOnUiThread(() =>
         {
             _notifyIcon.Visible = false;
             _notifyIcon.Dispose();
         });
-    }
-
-    private static void RunOnUiThread(Action action)
-    {
-        var dispatcher = System.Windows.Application.Current?.Dispatcher;
-
-        if (dispatcher is null || dispatcher.CheckAccess())
-        {
-            action();
-            return;
-        }
-
-        dispatcher.Invoke(action);
     }
 
     private string BuildNotifyIconText(string statusText)

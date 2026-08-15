@@ -27,6 +27,7 @@ public partial class SettingsWindow : Window
     private readonly HotkeyGesture _runtimeHotkey;
     private HotkeyGesture? _captureStartingHotkey;
     private bool _hotkeySuspended;
+    private bool _saveInProgress;
 
     public SettingsWindow(
         AppSettings currentSettings,
@@ -59,10 +60,21 @@ public partial class SettingsWindow : Window
         DataContext = _viewModel;
     }
 
-    public event EventHandler<SettingsSaveRequestedEventArgs>? SettingsSaveRequested;
+    /// <summary>
+    /// 保存请求处理器。返回的 Task 在保存事务（内部含 schtasks.exe 等外部进程等待）
+    /// 完成后才完成，异常经由该 Task 回传给设置窗统一弹错。
+    /// </summary>
+    public delegate Task SettingsSaveRequestedHandler(object? sender, SettingsSaveRequestedEventArgs args);
 
-    private void Save_Click(object sender, RoutedEventArgs e)
+    public event SettingsSaveRequestedHandler? SettingsSaveRequested;
+
+    private async void Save_Click(object sender, RoutedEventArgs e)
     {
+        if (_saveInProgress)
+        {
+            return;
+        }
+
         if (_viewModel.IsCapturingHotkey)
         {
             System.Windows.MessageBox.Show(this, "请先完成或取消热键录入。", AppInfo.Title);
@@ -124,25 +136,52 @@ public partial class SettingsWindow : Window
         var updatedSettings = _viewModel.ToSettings(
             maxRecordingDurationSeconds,
             hotkeyReleaseTailDurationMilliseconds);
+
+        // 保存事务内部会同步等待 schtasks.exe 等外部进程，由订阅方放到后台执行；
+        // 这里 await 其返回的 Task，期间禁用保存按钮防重入，完成后回 UI 线程关窗或报错。
+        var saveButton = (System.Windows.Controls.Button)sender;
+        _saveInProgress = true;
+        saveButton.IsEnabled = false;
         try
         {
-            SettingsSaveRequested?.Invoke(
-                this,
-                new SettingsSaveRequestedEventArgs(
-                    updatedSettings,
-                    config,
-                    _viewModel.DesiredStartupRegistrationMode));
+            var handler = SettingsSaveRequested;
+            if (handler is not null)
+            {
+                await handler(
+                    this,
+                    new SettingsSaveRequestedEventArgs(
+                        updatedSettings,
+                        config,
+                        _viewModel.DesiredStartupRegistrationMode));
+            }
+
             ResumeRuntimeHotkeyIfNeeded();
             Close();
         }
         catch (Exception ex)
         {
-            System.Windows.MessageBox.Show(this, $"保存设置失败：{ex.Message}", AppInfo.Title);
+            // 保存期间用户仍可能通过标题栏关闭窗口，仅在窗口存活时弹错；
+            // 事务内部已记录错误日志，不会静默丢失。
+            if (IsLoaded)
+            {
+                System.Windows.MessageBox.Show(this, $"保存设置失败：{ex.Message}", AppInfo.Title);
+            }
+        }
+        finally
+        {
+            _saveInProgress = false;
+            saveButton.IsEnabled = true;
         }
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e)
     {
+        // 保存事务进行中不允许关窗，避免完成回调落在已关闭的窗口上。
+        if (_saveInProgress)
+        {
+            return;
+        }
+
         Close();
     }
 
