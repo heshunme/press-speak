@@ -60,6 +60,8 @@ public sealed class WaveInAudioCaptureService : IAudioCaptureService
             _lastRecordedAudio = new RecordedAudio(Array.Empty<float>(), TimeSpan.Zero);
             _pendingStopReason = AudioCaptureStopReason.UserRequested;
             UpdateMaxDurationSnapshot();
+            // 预分配到时长上限对应的容量，避免长录音时 List 倍增重拷。
+            _samples.EnsureCapacity(_maxSampleCount);
             _waveIn = new WaveInEvent
             {
                 DeviceNumber = ResolveDeviceNumber(preferredDeviceName),
@@ -70,7 +72,17 @@ public sealed class WaveInAudioCaptureService : IAudioCaptureService
 
             _waveIn.DataAvailable += OnDataAvailable;
             _waveIn.RecordingStopped += OnRecordingStopped;
-            _waveIn.StartRecording();
+
+            try
+            {
+                _waveIn.StartRecording();
+            }
+            catch
+            {
+                // 启动失败时释放已订阅事件的设备实例，避免句柄泄漏并被下次启动直接覆盖。
+                CleanupWaveIn();
+                throw;
+            }
 
             IsRecording = true;
             _logger.Info("录音开始。");
@@ -90,7 +102,13 @@ public sealed class WaveInAudioCaptureService : IAudioCaptureService
             }
 
             stopCompletion = _stopCompletion;
-            _pendingStopReason = AudioCaptureStopReason.UserRequested;
+            // 时长上限回调可能已先设置 MaxDurationReached 并触发 StopRecording，
+            // 这里不得用 UserRequested 覆盖，否则"已达单次录音时长上限"的提示会丢失。
+            if (_pendingStopReason != AudioCaptureStopReason.MaxDurationReached)
+            {
+                _pendingStopReason = AudioCaptureStopReason.UserRequested;
+            }
+
             _waveIn.StopRecording();
         }
 
@@ -102,8 +120,8 @@ public sealed class WaveInAudioCaptureService : IAudioCaptureService
 
         lock (_syncRoot)
         {
-            var copy = _samples.ToArray();
-            _lastRecordedAudio = new RecordedAudio(copy, TimeSpan.FromSeconds(copy.Length / (double)SampleRate));
+            // OnRecordingStopped 已生成全量拷贝并写入 _lastRecordedAudio，直接复用，
+            // 避免每次停止产生两份全量拷贝。
             return _lastRecordedAudio;
         }
     }
