@@ -44,4 +44,46 @@ public static class HotkeyPhysicalKeySet
         var normalized = Normalize(keys);
         return string.Join(" + ", normalized.Select(static key => key.ToDisplayText()));
     }
+
+    /// <summary>零分配包含判断，供热路径使用；调用方保证 keys 已归一化。</summary>
+    internal static bool ContainsKey(IReadOnlyList<HotkeyPhysicalKey> keys, HotkeyPhysicalKey key)
+    {
+        for (var i = 0; i < keys.Count; i++)
+        {
+            if (keys[i].Equals(key))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>零分配 Right Alt 检测，供热路径使用。</summary>
+    internal static bool AnyRightAltKey(IReadOnlyList<HotkeyPhysicalKey> keys)
+    {
+        for (var i = 0; i < keys.Count; i++)
+        {
+            if (keys[i].IsRightAltKey)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>零分配 Right Alt 检测（直接遍历 HashSet，避免接口枚举装箱）。</summary>
+    internal static bool AnyRightAltKey(HashSet<HotkeyPhysicalKey> keys)
+    {
+        foreach (var key in keys)
+        {
+            if (key.IsRightAltKey)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

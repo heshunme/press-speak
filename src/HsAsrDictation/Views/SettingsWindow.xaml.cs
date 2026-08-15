@@ -311,6 +311,12 @@ public partial class SettingsWindow : Window
 
     private void OnKeyboardEvent(object? sender, HotkeyEventData keyEvent)
     {
+        // KeyEvent 现在由后台线程派发（钩子回调不再阻塞），录入状态与 UI 线程共享，封送回 UI 线程处理。
+        Dispatcher.BeginInvoke(() => HandleKeyboardEvent(keyEvent));
+    }
+
+    private void HandleKeyboardEvent(HotkeyEventData keyEvent)
+    {
         if (!_viewModel.IsCapturingHotkey)
         {
             return;

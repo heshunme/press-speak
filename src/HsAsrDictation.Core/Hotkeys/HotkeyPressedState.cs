@@ -6,6 +6,9 @@ public sealed class HotkeyPressedState
 
     public IReadOnlyCollection<HotkeyPhysicalKey> PressedKeys => _pressedKeys;
 
+    /// <summary>热路径零分配评估使用的底层集合（元素有效且不重复）；调用方只读，不得修改。</summary>
+    internal HashSet<HotkeyPhysicalKey> PressedKeySet => _pressedKeys;
+
     public bool IsEmpty => _pressedKeys.Count == 0;
 
     public void Clear() => _pressedKeys.Clear();
