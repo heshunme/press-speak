@@ -8,6 +8,7 @@ using HsAsrDictation.Foreground;
 using HsAsrDictation.Hotkeys;
 using HsAsrDictation.Insertion;
 using HsAsrDictation.Logging;
+using HsAsrDictation.Media;
 using HsAsrDictation.Models;
 using HsAsrDictation.Notifications;
 using HsAsrDictation.Overlay;
@@ -39,6 +40,7 @@ public partial class App : System.Windows.Application
     private IPostProcessingRuleFactory? _postProcessingRuleFactory;
     private IPostProcessingService? _postProcessingService;
     private DictationCoordinator? _coordinator;
+    private MediaPlaybackPauseService? _mediaPlaybackPauseService;
     private TrayIconService? _trayIconService;
     private IStatusOverlayService? _statusOverlayService;
     private DictationOverlayController? _dictationOverlayController;
@@ -83,6 +85,17 @@ public partial class App : System.Windows.Application
 
         _hotkeyManager?.Dispose();
         _keyboardEventSource?.Dispose();
+
+        // 兜底：若退出时仍处于录音暂停了媒体的状态，恢复播放，避免媒体停在暂停态。
+        try
+        {
+            _mediaPlaybackPauseService?.ResumeAllAsync().Wait(TimeSpan.FromSeconds(2));
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warn($"退出时恢复媒体播放失败：{ex.Message}");
+        }
+
         _audioCaptureService?.Dispose();
         _asrEngine?.Dispose();
         _streamingAsrEngine?.Dispose();
@@ -233,6 +246,7 @@ public partial class App : System.Windows.Application
         _postProcessingService = new PostProcessingService(_postProcessingRuleRepository, _postProcessingRuleFactory, _logger!);
         _statusOverlayService = new StatusOverlayService();
         _dictationOverlayController = new DictationOverlayController(_statusOverlayService);
+        _mediaPlaybackPauseService = new MediaPlaybackPauseService(_logger!);
         _settingsSaveTransaction = new SettingsSaveTransaction(
             _settingsService,
             _postProcessingRuleRepository,
@@ -265,6 +279,9 @@ public partial class App : System.Windows.Application
                 _trayIconService.SetStatus(status.OverlayText);
                 _dictationOverlayController.Update(status);
             });
+
+        _coordinator.StateChanged += (_, status) =>
+            _mediaPlaybackPauseService.OnDictationStateChanged(status);
 
         _hotkeyManager.Pressed += async (_, _) => await _coordinator.BeginRecordingAsync();
         _hotkeyManager.Released += async (_, _) => await _coordinator.FinalizeRecordingAfterHotkeyReleaseAsync();
