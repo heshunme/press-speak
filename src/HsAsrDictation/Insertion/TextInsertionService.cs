@@ -129,7 +129,39 @@ public sealed class TextInsertionService : ITextInsertionService
             });
         }, ct);
 
-        if (!TrySendPasteShortcut())
+        var pasteSent = TrySendPasteShortcut();
+
+        // 快照恢复放进 finally：即使 Ctrl+V 发送失败或等待期间被取消，
+        // 也要把用户原剪贴板内容恢复回去，避免被听写文本顶掉。
+        try
+        {
+            if (pasteSent)
+            {
+                await Task.Delay(150, ct);
+            }
+        }
+        finally
+        {
+            try
+            {
+                await RetryClipboardAccessAsync(async () =>
+                {
+                    await dispatcher.InvokeAsync(() =>
+                    {
+                        if (snapshot is not null)
+                        {
+                            System.Windows.Clipboard.SetDataObject(snapshot, copy: false);
+                        }
+                    });
+                }, CancellationToken.None);
+            }
+            catch (COMException ex) when (IsClipboardBusy(ex))
+            {
+                _logger.Warn($"恢复剪贴板快照失败，将保留当前剪贴板内容。 HRESULT=0x{ex.HResult:X8}");
+            }
+        }
+
+        if (!pasteSent)
         {
             return new InsertionResult
             {
@@ -137,26 +169,6 @@ public sealed class TextInsertionService : ITextInsertionService
                 Method = "Clipboard",
                 Error = "Ctrl+V 发送失败。"
             };
-        }
-
-        await Task.Delay(150, ct);
-
-        try
-        {
-            await RetryClipboardAccessAsync(async () =>
-            {
-                await dispatcher.InvokeAsync(() =>
-                {
-                    if (snapshot is not null)
-                    {
-                        System.Windows.Clipboard.SetDataObject(snapshot, copy: false);
-                    }
-                });
-            }, ct);
-        }
-        catch (COMException ex) when (IsClipboardBusy(ex))
-        {
-            _logger.Warn($"恢复剪贴板快照失败，将保留当前剪贴板内容。 HRESULT=0x{ex.HResult:X8}");
         }
 
         return new InsertionResult
