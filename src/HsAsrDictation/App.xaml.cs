@@ -1,6 +1,8 @@
 using System.IO;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Forms;
+using System.Windows.Threading;
 using System.Security.Principal;
 using HsAsrDictation.Asr;
 using HsAsrDictation.Audio;
@@ -53,6 +55,7 @@ public partial class App : System.Windows.Application
     private PrivilegeMode _currentPrivilegeMode;
     private NotificationMessage? _pendingStartupNotification;
     private bool _restartAsAdministratorInProgress;
+    private bool _settingsWindowOpening;
 
     /// <summary>
     /// 启动分支按固定顺序处理，每个 Handle* 返回 true 表示当前进程已处理完毕并将退出：
@@ -338,39 +341,60 @@ public partial class App : System.Windows.Application
         {
             if (_settingsWindow is not null && _settingsWindow.IsLoaded)
             {
-                if (_settingsWindow.WindowState == WindowState.Minimized)
-                {
-                    _settingsWindow.WindowState = WindowState.Normal;
-                }
-
-                _settingsWindow.Show();
-                _settingsWindow.Activate();
-                _settingsWindow.Focus();
+                ShowAndActivateToForeground(_settingsWindow);
                 return;
             }
 
-            StartupRegistrationMode? startupRegistrationMode = null;
-            string? startupRegistrationErrorMessage = null;
-            try
+            // 防重入：后台准备数据期间重复的托盘双击/菜单点击直接忽略，
+            // 窗口会在数据就绪后自动出现。
+            if (_settingsWindowOpening)
             {
-                var startupRegistrationState = _startupRegistrationService.GetState();
-                startupRegistrationMode = startupRegistrationState.Mode;
-                startupRegistrationErrorMessage = startupRegistrationState.Message;
-            }
-            catch (Exception ex)
-            {
-                _logger.Error("读取登录自启动设置失败。", ex);
-                startupRegistrationErrorMessage = $"无法读取登录自启动状态，本次保存不会更改该设置：{ex.Message}";
+                return;
             }
 
+            _settingsWindowOpening = true;
+            SafeFireAndForget(CreateAndShowSettingsWindowAsync);
+        });
+    }
+
+    private async Task CreateAndShowSettingsWindowAsync()
+    {
+        try
+        {
+            var stopwatch = Stopwatch.StartNew();
+
+            // GetState 会同步 spawn schtasks.exe 并 WaitForExit，GetInputDevices 首次调用
+            // 要初始化 winmm，都可能耗时数秒；放后台执行避免阻塞 UI 线程（冻结期间
+            // 热键、托盘、悬浮窗全部无响应）。
+            var (startupRegistrationMode, startupRegistrationErrorMessage, devices) = await Task.Run(() =>
+            {
+                StartupRegistrationMode? mode = null;
+                string? errorMessage = null;
+                try
+                {
+                    var startupRegistrationState = _startupRegistrationService!.GetState();
+                    mode = startupRegistrationState.Mode;
+                    errorMessage = startupRegistrationState.Message;
+                }
+                catch (Exception ex)
+                {
+                    _logger!.Error("读取登录自启动设置失败。", ex);
+                    errorMessage = $"无法读取登录自启动状态，本次保存不会更改该设置：{ex.Message}";
+                }
+
+                return (mode, errorMessage, _audioCaptureService!.GetInputDevices());
+            });
+
+            var dataReadyMilliseconds = stopwatch.ElapsedMilliseconds;
+
             _settingsWindow = new SettingsWindow(
-                _settingsService.Current,
-                _audioCaptureService.GetInputDevices(),
-                _hotkeyManager,
-                _keyboardEventSource,
-                _logger,
-                _postProcessingRuleRepository,
-                _postProcessingService,
+                _settingsService!.Current,
+                devices,
+                _hotkeyManager!,
+                _keyboardEventSource!,
+                _logger!,
+                _postProcessingRuleRepository!,
+                _postProcessingService!,
                 _currentPrivilegeMode.ToDisplayText(),
                 startupRegistrationMode,
                 startupRegistrationErrorMessage);
@@ -384,16 +408,49 @@ public partial class App : System.Windows.Application
 
                 // 事务内部会 spawn schtasks.exe 并同步 WaitForExit，放后台执行避免卡住 UI；
                 // 失败异常经由返回的 Task 回传给设置窗统一弹错，错误处理语义不变。
-                await Task.Run(() => _settingsSaveTransaction.Execute(
+                await Task.Run(() => _settingsSaveTransaction!.Execute(
                     request.Settings,
                     request.PostProcessingConfig,
                     request.StartupRegistrationMode));
             };
 
             _settingsWindow.Closed += (_, _) => _settingsWindow = null;
-            _settingsWindow.Show();
-            _settingsWindow.Activate();
-        });
+            _logger!.Info(
+                $"设置窗口打开：数据准备 {dataReadyMilliseconds}ms，创建 {stopwatch.ElapsedMilliseconds - dataReadyMilliseconds}ms");
+            ShowAndActivateToForeground(_settingsWindow);
+        }
+        finally
+        {
+            _settingsWindowOpening = false;
+        }
+    }
+
+    /// <summary>
+    /// 从托盘唤出窗口时进程通常不持有前台权限，直接 Activate 可能被系统拒绝而停在后台。
+    /// 先以 Topmost 显示窗口（置顶层不受前台权限限制，保证首次呈现即在最前），
+    /// 待窗口完成呈现（Loaded 优先级）后再撤销 Topmost 并接管焦点——紧跟 Show
+    /// 同步撤销在窗口尚未呈现时不生效。
+    /// </summary>
+    private static void ShowAndActivateToForeground(Window window)
+    {
+        if (window.WindowState == WindowState.Minimized)
+        {
+            window.WindowState = WindowState.Normal;
+        }
+
+        window.Topmost = true;
+        window.Show();
+        _ = window.Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
+        {
+            if (!window.IsLoaded)
+            {
+                return;
+            }
+
+            window.Topmost = false;
+            window.Activate();
+            window.Focus();
+        }));
     }
 
     private static string? ResolveCurrentUserSid()
