@@ -9,14 +9,25 @@ namespace HsAsrDictation.Models;
 
 public sealed class ModelProvisioningService : IModelProvisioningService
 {
-    private static readonly HttpClient HttpClient = new();
+    // 下载正文的总超时兜底：HttpClient.Timeout 只覆盖到响应头（ResponseHeadersRead），
+    // 正文流只靠调用方 ct，现有调用方全传 default，网络挂起时会永久卡住。
+    private static readonly TimeSpan DefaultDownloadBodyTimeout = TimeSpan.FromMinutes(10);
+
+    private readonly HttpClient _httpClient;
+    private readonly TimeSpan _downloadBodyTimeout;
     private readonly SettingsService _settingsService;
     private readonly LocalLogService _logger;
 
-    public ModelProvisioningService(SettingsService settingsService, LocalLogService logger)
+    public ModelProvisioningService(
+        SettingsService settingsService,
+        LocalLogService logger,
+        HttpMessageHandler? httpMessageHandler = null,
+        TimeSpan? downloadBodyTimeout = null)
     {
         _settingsService = settingsService;
         _logger = logger;
+        _httpClient = httpMessageHandler is null ? new HttpClient() : new HttpClient(httpMessageHandler);
+        _downloadBodyTimeout = downloadBodyTimeout ?? DefaultDownloadBodyTimeout;
     }
 
     public async Task<ModelReadyResult> EnsureReadyAsync(AsrModelKind kind, bool downloadIfMissing, CancellationToken ct = default)
@@ -53,42 +64,79 @@ public sealed class ModelProvisioningService : IModelProvisioningService
 
         _logger.Info($"开始下载模型：{definition.ArchiveUrl}");
 
-        using (var response = await HttpClient.GetAsync(
-                   definition.ArchiveUrl,
-                   HttpCompletionOption.ResponseHeadersRead,
-                   ct))
+        // 下载或解压失败时清理半成品压缩包。
+        try
         {
-            response.EnsureSuccessStatusCode();
-
-            await using var input = await response.Content.ReadAsStreamAsync(ct);
-            await using var output = File.Create(archivePath);
-            await input.CopyToAsync(output, ct);
-        }
-
-        _logger.Info("模型下载完成，开始解压。");
-
-        using (var archiveStream = File.OpenRead(archivePath))
-        using (var reader = ReaderFactory.Open(archiveStream))
-        {
-            while (reader.MoveToNextEntry())
+            using (var response = await _httpClient.GetAsync(
+                       definition.ArchiveUrl,
+                       HttpCompletionOption.ResponseHeadersRead,
+                       ct))
             {
-                if (reader.Entry.IsDirectory)
-                {
-                    continue;
-                }
+                response.EnsureSuccessStatusCode();
 
-                reader.WriteEntryToDirectory(extractionTarget, new ExtractionOptions
+                await using var input = await response.Content.ReadAsStreamAsync(ct);
+                await using var output = File.Create(archivePath);
+
+                // 正文传输用独立超时令牌兜底，防止网络挂起后永久占用上层锁。
+                using var bodyTimeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                bodyTimeoutCts.CancelAfter(_downloadBodyTimeout);
+                try
                 {
-                    ExtractFullPath = true,
-                    Overwrite = true,
-                    PreserveFileTime = true
-                });
+                    await input.CopyToAsync(output, bodyTimeoutCts.Token);
+                }
+                catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                {
+                    // 由下载超时触发，与调用方主动取消区分开。
+                    throw new TimeoutException($"模型下载超时（{_downloadBodyTimeout}）：{definition.ArchiveUrl}");
+                }
             }
+
+            _logger.Info("模型下载完成，开始解压。");
+
+            // 解压是纯同步 CPU+IO，放线程池执行，避免阻塞调用方（UI）线程。
+            await Task.Run(() =>
+            {
+                using var archiveStream = File.OpenRead(archivePath);
+                using var reader = ReaderFactory.Open(archiveStream);
+                while (reader.MoveToNextEntry())
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    if (reader.Entry.IsDirectory)
+                    {
+                        continue;
+                    }
+
+                    reader.WriteEntryToDirectory(extractionTarget, new ExtractionOptions
+                    {
+                        ExtractFullPath = true,
+                        Overwrite = true,
+                        PreserveFileTime = true
+                    });
+                }
+            }, ct);
+        }
+        finally
+        {
+            TryDeleteFile(archivePath);
         }
 
-        File.Delete(archivePath);
         _logger.Info("模型解压完成。");
         return ValidateExistingModel(kind, modelRootPath);
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch
+        {
+        }
     }
 
     private static string GetModelRootPath(AppSettings settings, AsrModelKind kind) =>
