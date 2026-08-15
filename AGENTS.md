@@ -9,7 +9,10 @@ Use project-file commands because the repo does not include a `.sln`.
 - `dotnet build src/HsAsrDictation/HsAsrDictation.csproj`: build the WPF app.
 - `dotnet test tests/HsAsrDictation.Tests/HsAsrDictation.Tests.csproj`: run xUnit tests.
 - `bash scripts/publish-win-x64.sh Release`: create a framework-dependent `win-x64` publish in `artifacts/publish/win-x64/`.
+- `bash scripts/sync-local-win-install.sh`: incrementally sync the publish output (hash-based) to the local Windows staging install at `/mnt/d/PressSpeak-Staging`.
 - `pwsh ./scripts/publish-win-x64.ps1 -Configuration Release`: PowerShell equivalent for Windows.
+
+After finishing any change that should reach the Windows install (bug fixes, features, UI tweaks), always close out with the publish + sync combo: `bash scripts/publish-win-x64.sh Release` followed by `bash scripts/sync-local-win-install.sh`, so the running install picks up the change immediately.
 
 ## Coding Style & Naming Conventions
 Follow existing C# style: 4-space indentation, file-scoped namespaces, `PascalCase` for types and methods, `_camelCase` for private readonly fields, and clear interface names with an `I` prefix. Keep feature code inside the matching folder/namespace, for example `HsAsrDictation.Audio` or `HsAsrDictation.Models`. Nullable reference types and implicit usings are enabled; write code that stays warning-free. No dedicated formatter or linter config is checked in, so match the surrounding style and default SDK analyzers.
