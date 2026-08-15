@@ -28,7 +28,6 @@ public sealed class WindowsStartupRegistrationPlatform : IStartupRegistrationPla
     private const int TaskSecurityInformation = 0x00000007;
     private const int SchtasksTimeoutMilliseconds = 30_000;
     private const int MaintenanceTimeoutMilliseconds = 120_000;
-    private const int ProcessTerminationTimeoutMilliseconds = 5_000;
     private const int RedirectedStreamTimeoutMilliseconds = 5_000;
 
     private readonly string _taskName;
@@ -52,7 +51,7 @@ public sealed class WindowsStartupRegistrationPlatform : IStartupRegistrationPla
 
         ExecutablePath = executablePath.Trim();
         UserSid = new SecurityIdentifier(userSid.Trim()).Value;
-        CommandInterpreterPath = ResolveCommandInterpreterPath();
+        CommandInterpreterPath = WindowsProcessHelper.ResolveSystemBinary("cmd.exe");
         _taskName = StartupRegistrationCommandBuilder.BuildTaskName(UserSid);
     }
 
@@ -206,11 +205,9 @@ public sealed class WindowsStartupRegistrationPlatform : IStartupRegistrationPla
 
             if (!process.WaitForExit(MaintenanceTimeoutMilliseconds))
             {
-                var wasTerminated = TryTerminateProcess(process);
+                var wasTerminated = WindowsProcessHelper.TryTerminateProcess(process);
                 return StartupRegistrationMaintenanceResult.Failed(
-                    wasTerminated
-                        ? "计划任务维护进程等待超时，已终止。请重新打开设置确认当前状态。"
-                        : "计划任务维护进程等待超时且无法终止，当前状态未知。请稍后重新打开设置确认。");
+                    WindowsProcessHelper.BuildWaitTimeoutMessage("计划任务维护进程", wasTerminated));
             }
 
             return process.ExitCode == MaintenanceSucceededExitCode
@@ -354,7 +351,7 @@ public sealed class WindowsStartupRegistrationPlatform : IStartupRegistrationPla
     {
         try
         {
-            var schtasksPath = ResolveSchtasksPath();
+            var schtasksPath = WindowsProcessHelper.ResolveSystemBinary("schtasks.exe");
             var startInfo = new ProcessStartInfo(schtasksPath)
             {
                 UseShellExecute = true,
@@ -376,11 +373,9 @@ public sealed class WindowsStartupRegistrationPlatform : IStartupRegistrationPla
 
             if (!process.WaitForExit(MaintenanceTimeoutMilliseconds))
             {
-                var wasTerminated = TryTerminateProcess(process);
+                var wasTerminated = WindowsProcessHelper.TryTerminateProcess(process);
                 return StartupRegistrationMaintenanceResult.Failed(
-                    wasTerminated
-                        ? "计划任务删除进程等待超时，已终止。请重新打开设置确认当前状态。"
-                        : "计划任务删除进程等待超时且无法终止，当前状态未知。请稍后重新打开设置确认。");
+                    WindowsProcessHelper.BuildWaitTimeoutMessage("计划任务删除进程", wasTerminated));
             }
 
             if (process.ExitCode == 0)
@@ -412,7 +407,7 @@ public sealed class WindowsStartupRegistrationPlatform : IStartupRegistrationPla
             throw new PlatformNotSupportedException("计划任务维护仅支持 Windows。");
         }
 
-        var schtasksPath = ResolveSchtasksPath();
+        var schtasksPath = WindowsProcessHelper.ResolveSystemBinary("schtasks.exe");
 
         var startInfo = new ProcessStartInfo(schtasksPath)
         {
@@ -433,7 +428,7 @@ public sealed class WindowsStartupRegistrationPlatform : IStartupRegistrationPla
         var standardErrorTask = process.StandardError.ReadToEndAsync();
         if (!process.WaitForExit(SchtasksTimeoutMilliseconds))
         {
-            TryTerminateProcess(process);
+            WindowsProcessHelper.TryTerminateProcess(process);
             throw new TimeoutException("等待 schtasks.exe 完成操作超时。");
         }
 
@@ -477,22 +472,6 @@ public sealed class WindowsStartupRegistrationPlatform : IStartupRegistrationPla
         using var identity = WindowsIdentity.GetCurrent();
         return identity.User?.Value
             ?? throw new InvalidOperationException("无法解析当前用户 SID。");
-    }
-
-    private static string ResolveCommandInterpreterPath()
-    {
-        var path = Path.Combine(Environment.SystemDirectory, "cmd.exe");
-        return File.Exists(path)
-            ? path
-            : throw new FileNotFoundException("无法定位 Windows cmd.exe。", path);
-    }
-
-    private static string ResolveSchtasksPath()
-    {
-        var path = Path.Combine(Environment.SystemDirectory, "schtasks.exe");
-        return File.Exists(path)
-            ? path
-            : throw new FileNotFoundException("无法定位 Windows schtasks.exe。", path);
     }
 
     private static string GetWorkingDirectory(string executablePath) =>
@@ -542,23 +521,6 @@ public sealed class WindowsStartupRegistrationPlatform : IStartupRegistrationPla
         }
 
         return queryTask.GetAwaiter().GetResult();
-    }
-
-    private static bool TryTerminateProcess(Process process)
-    {
-        try
-        {
-            if (!process.HasExited)
-            {
-                process.Kill(entireProcessTree: true);
-            }
-
-            return process.WaitForExit(ProcessTerminationTimeoutMilliseconds);
-        }
-        catch
-        {
-            return false;
-        }
     }
 
     private static void ReleaseComObject(object? instance)

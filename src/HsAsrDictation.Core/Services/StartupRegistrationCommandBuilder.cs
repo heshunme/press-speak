@@ -5,8 +5,6 @@ namespace HsAsrDictation.Services;
 public static class StartupRegistrationCommandBuilder
 {
     public const string AutoStartArgument = StartupOptions.AutoStartFlag;
-    public const string MaintenanceArgumentPrefix = StartupOptions.StartupTaskMaintenancePrefix;
-    public const string MaintenanceUserSidArgumentPrefix = StartupOptions.StartupTaskUserSidPrefix;
     public const int MaxRunCommandLength = 260;
     public const string TaskNamePrefix = "Press Speak Startup";
     public const string AdministratorLauncherFileName = "press-speak-admin-autostart.cmd";
@@ -208,23 +206,6 @@ public static class StartupRegistrationCommandBuilder
             command.Trim(),
             BuildRunCommand(executablePath),
             StringComparison.OrdinalIgnoreCase);
-    }
-
-    public static string BuildMaintenanceArgument(StartupTaskMaintenanceAction action) => action switch
-    {
-        StartupTaskMaintenanceAction.Create => $"{MaintenanceArgumentPrefix}create",
-        StartupTaskMaintenanceAction.Delete => $"{MaintenanceArgumentPrefix}delete",
-        _ => throw new ArgumentOutOfRangeException(nameof(action), action, "不支持的启动任务维护动作。")
-    };
-
-    public static string BuildMaintenanceUserSidArgument(string userSid)
-    {
-        if (string.IsNullOrWhiteSpace(userSid))
-        {
-            throw new ArgumentException("当前用户 SID 不能为空。", nameof(userSid));
-        }
-
-        return $"{MaintenanceUserSidArgumentPrefix}{userSid.Trim()}";
     }
 
     /// <summary>

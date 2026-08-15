@@ -64,6 +64,16 @@ internal static class WindowsStartupRegistrationSecurityValidator
         WriteDac |
         WriteOwner;
 
+    // 与 Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories) 等价的遍历语义
+    // （递归全部子目录、不可访问时抛错由调用方兜底），额外跳过重解析点以免顺着
+    // 目录联接点/符号链接递归到安装树之外。
+    private static readonly EnumerationOptions HardLinkScanEnumerationOptions = new()
+    {
+        RecurseSubdirectories = true,
+        IgnoreInaccessible = false,
+        AttributesToSkip = FileAttributes.ReparsePoint
+    };
+
     public static StartupRegistrationChangeResult Validate(
         string executablePath,
         string targetUserSid)
@@ -105,7 +115,10 @@ internal static class WindowsStartupRegistrationSecurityValidator
     {
         try
         {
-            foreach (var entry in Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories))
+            // 与 SearchOption.AllDirectories 语义保持一致（递归、不可访问时抛错走兜底），
+            // 额外跳过重解析点：既不跟随目录联接点/符号链接递归出安装树，也不把
+            // 链接本身的文件记录当作硬链接检测目标。
+            foreach (var entry in Directory.EnumerateFiles(directory, "*", HardLinkScanEnumerationOptions))
             {
                 if (GetHardLinkCount(entry) > 1)
                 {

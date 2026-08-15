@@ -107,26 +107,6 @@ public sealed class StartupOptions
          !string.IsNullOrWhiteSpace(currentUserSid) &&
          string.Equals(ElevationOriginUserSid, currentUserSid, StringComparison.OrdinalIgnoreCase));
 
-    public IReadOnlyList<string> BuildElevatedRestartArgs()
-    {
-        var args = new List<string>(ForwardedArgs.Count + 3);
-        args.AddRange(ForwardedArgs);
-
-        if (StartupTaskMaintenance != StartupTaskMaintenanceAction.None)
-        {
-            args.Add(BuildStartupTaskMaintenanceArg(StartupTaskMaintenance));
-
-            if (!string.IsNullOrWhiteSpace(StartupTaskUserSid))
-            {
-                args.Add($"{StartupTaskUserSidPrefix}{StartupTaskUserSid}");
-            }
-        }
-
-        args.Add(AdminFlag);
-        args.Add(ElevationAppliedFlag);
-        return args;
-    }
-
     private static bool TryParseStartupTaskMaintenance(
         string arg,
         out StartupTaskMaintenanceAction maintenanceAction)
@@ -152,9 +132,6 @@ public sealed class StartupOptions
 
         return false;
     }
-
-    private static string BuildStartupTaskMaintenanceArg(StartupTaskMaintenanceAction maintenanceAction) =>
-        $"{StartupTaskMaintenancePrefix}{maintenanceAction.ToString().ToLowerInvariant()}";
 
     private static bool TryParseStartupTaskUserSid(string arg, out string? userSid)
         => TryParseValue(arg, StartupTaskUserSidPrefix, out userSid);

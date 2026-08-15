@@ -20,7 +20,6 @@ public sealed class WindowsStartupAclRepairService
 {
     private const int UserCanceledNativeErrorCode = 1223;
     private const int RepairTimeoutMilliseconds = 120_000;
-    private const int ProcessTerminationTimeoutMilliseconds = 5_000;
 
     public AclRepairResult Repair(string applicationDirectory, string userSid)
     {
@@ -39,8 +38,8 @@ public sealed class WindowsStartupAclRepairService
                     $"目录内含硬链接，无法安全自动修复：{preExistingHardLink}。请手动处理或更换安装位置。");
             }
 
-            var icaclsPath = ResolveIcaclsPath();
-            var commandInterpreterPath = ResolveCommandInterpreterPath();
+            var icaclsPath = WindowsProcessHelper.ResolveSystemBinary("icacls.exe");
+            var commandInterpreterPath = WindowsProcessHelper.ResolveSystemBinary("cmd.exe");
             var commands = StartupRegistrationCommandBuilder.BuildAclRepairCommands(
                 icaclsPath,
                 normalizedDirectory,
@@ -79,11 +78,9 @@ public sealed class WindowsStartupAclRepairService
 
             if (!process.WaitForExit(RepairTimeoutMilliseconds))
             {
-                var wasTerminated = TryTerminateProcess(process);
+                var wasTerminated = WindowsProcessHelper.TryTerminateProcess(process);
                 return AclRepairResult.Failed(
-                    wasTerminated
-                        ? "权限修复进程等待超时，已终止。请重新打开设置确认当前状态。"
-                        : "权限修复进程等待超时且无法终止，当前状态未知。请稍后重新打开设置确认。");
+                    WindowsProcessHelper.BuildWaitTimeoutMessage("权限修复进程", wasTerminated));
             }
 
             if (process.ExitCode != 0)
@@ -142,39 +139,6 @@ public sealed class WindowsStartupAclRepairService
         {
             // 忽略清理失败，不影响修复结果。
         }
-    }
-
-    private static bool TryTerminateProcess(Process process)
-    {
-        try
-        {
-            if (!process.HasExited)
-            {
-                process.Kill(entireProcessTree: true);
-            }
-
-            return process.WaitForExit(ProcessTerminationTimeoutMilliseconds);
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static string ResolveIcaclsPath()
-    {
-        var path = Path.Combine(Environment.SystemDirectory, "icacls.exe");
-        return File.Exists(path)
-            ? path
-            : throw new FileNotFoundException("无法定位 Windows icacls.exe。", path);
-    }
-
-    private static string ResolveCommandInterpreterPath()
-    {
-        var path = Path.Combine(Environment.SystemDirectory, "cmd.exe");
-        return File.Exists(path)
-            ? path
-            : throw new FileNotFoundException("无法定位 Windows cmd.exe。", path);
     }
 }
 

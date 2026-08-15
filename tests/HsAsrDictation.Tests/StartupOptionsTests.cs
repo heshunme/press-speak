@@ -107,34 +107,4 @@ public sealed class StartupOptionsTests
             StartupOptions.Parse([StartupOptions.AdminFlag])
                 .IsElevationOriginCurrent("S-1-5-21-1-2-3-1002"));
     }
-
-    [Fact]
-    public void BuildElevatedRestartArgs_StripsDuplicateControlFlagsAndAppendsCanonicalFlags()
-    {
-        var options = StartupOptions.Parse([
-            StartupOptions.AdminFlag,
-            StartupOptions.AutoStartFlag,
-            "value",
-            StartupOptions.ElevationAppliedFlag,
-            $"{StartupOptions.StartupTaskMaintenancePrefix}CREATE",
-            $"{StartupOptions.StartupTaskUserSidPrefix}S-1-5-21-1-2-3-1001",
-            "--mode=test"
-        ]);
-
-        var args = options.BuildElevatedRestartArgs();
-
-        Assert.Equal(
-            new[]
-            {
-                "value",
-                "--mode=test",
-                $"{StartupOptions.StartupTaskMaintenancePrefix}create",
-                $"{StartupOptions.StartupTaskUserSidPrefix}S-1-5-21-1-2-3-1001",
-                StartupOptions.AdminFlag,
-                StartupOptions.ElevationAppliedFlag
-            },
-            args);
-
-        Assert.DoesNotContain(StartupOptions.AutoStartFlag, args);
-    }
 }

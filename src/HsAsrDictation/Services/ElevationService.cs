@@ -9,7 +9,6 @@ public sealed class ElevationService
 {
     private const int UserCanceledNativeErrorCode = 1223;
     private const int LauncherTimeoutMilliseconds = 30_000;
-    private const int ProcessTerminationTimeoutMilliseconds = 5_000;
 
     public bool IsRunningAsAdministrator()
     {
@@ -89,11 +88,13 @@ public sealed class ElevationService
 
             if (!process.WaitForExit(LauncherTimeoutMilliseconds))
             {
-                var wasTerminated = TryTerminateProcess(process);
+                var wasTerminated = WindowsProcessHelper.TryTerminateProcess(process);
                 return ElevationRestartResult.CreateFailed(
-                    wasTerminated
-                        ? "管理员启动包装进程等待超时，已终止；当前实例将继续运行。"
-                        : "管理员启动包装进程等待超时且无法终止，状态未知；当前实例将继续运行。");
+                    WindowsProcessHelper.BuildWaitTimeoutMessage(
+                        "管理员启动包装进程",
+                        wasTerminated,
+                        terminatedSuffix: "；当前实例将继续运行。",
+                        unterminatedSuffix: "状态未知；当前实例将继续运行。"));
             }
 
             if (process.ExitCode != 0)
@@ -117,23 +118,6 @@ public sealed class ElevationService
         catch (Exception ex)
         {
             return ElevationRestartResult.CreateFailed(ex.Message);
-        }
-    }
-
-    private static bool TryTerminateProcess(Process process)
-    {
-        try
-        {
-            if (!process.HasExited)
-            {
-                process.Kill(entireProcessTree: true);
-            }
-
-            return process.WaitForExit(ProcessTerminationTimeoutMilliseconds);
-        }
-        catch
-        {
-            return false;
         }
     }
 }
