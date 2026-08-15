@@ -215,11 +215,9 @@ public sealed class DictationCoordinatorSessionTests : IDisposable
     {
         public bool IsReady => true;
 
-        public Task InitializeAsync(CancellationToken ct = default) => Task.CompletedTask;
+        public Task InitializeAsync(CancellationToken ct = default, bool forceReprovision = false) => Task.CompletedTask;
 
-        public void Unload()
-        {
-        }
+        public Task UnloadAsync() => Task.CompletedTask;
 
         public Task<AsrResult> TranscribeAsync(float[] pcm16kMono, CancellationToken ct = default) =>
             Task.FromResult(new AsrResult
@@ -237,11 +235,9 @@ public sealed class DictationCoordinatorSessionTests : IDisposable
     {
         public bool IsReady => true;
 
-        public Task InitializeAsync(CancellationToken ct = default) => Task.CompletedTask;
+        public Task InitializeAsync(CancellationToken ct = default, bool forceReprovision = false) => Task.CompletedTask;
 
-        public void Unload()
-        {
-        }
+        public Task UnloadAsync() => Task.CompletedTask;
 
         public IStreamingAsrSession CreateSession() => throw new InvalidOperationException("非流式模式不应创建流式会话。");
 

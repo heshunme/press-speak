@@ -106,11 +106,12 @@ public sealed class DictationCoordinator
     {
         try
         {
+            // 传入实时探针而非快照：管理器在拿到协调锁、真正卸载前重新求值。
             var result = await _modelResidencyManager.EnsureModeReadyAsync(
                 _settingsService.Current.RecognitionMode,
                 downloadIfMissing,
                 reinitialize,
-                allowUnload: IsIdle(),
+                allowUnload: IsIdle,
                 ct);
 
             if (!result.Success)
@@ -133,7 +134,7 @@ public sealed class DictationCoordinator
             var result = await _modelResidencyManager.RedownloadModeAsync(
                 _settingsService.Current.RecognitionMode,
                 reinitialize,
-                allowUnload: IsIdle(),
+                allowUnload: IsIdle,
                 ct);
 
             if (!result.Success)
@@ -213,6 +214,11 @@ public sealed class DictationCoordinator
             var errorMessage = ready.ErrorMessage ?? "标点模型未就绪。";
             _logger.Warn(errorMessage);
             _notificationService.Warn(AppInfo.Title, $"{errorMessage} 听写将回退为原始文本。");
+        }
+        catch (OperationCanceledException)
+        {
+            // 调用方取消是正常控制流，不记错误也不弹通知。
+            throw;
         }
         catch (Exception ex)
         {
@@ -427,11 +433,14 @@ public sealed class DictationCoordinator
             }
 
             SetState(DictationState.Inserting);
-            finalText = _punctuationService.TryAddPunctuation(finalText);
+            // 标点是原生推理（几十~几百 ms）、后处理是正则管线，都是 CPU 重活：
+            // 放线程池执行，避免占用调用方（UI continuation）。标点服务内部有 _gate 锁，跨线程安全。
+            finalText = await Task.Run(() => _punctuationService.TryAddPunctuation(finalText));
             if (session.Settings.EnablePostProcessingRules)
             {
-                finalText = _postProcessingService.TryProcess(finalText, CreateRuleExecutionContext(
-                    session.CaptureContext ?? _foregroundContextService.Capture()));
+                var ruleContext = CreateRuleExecutionContext(
+                    session.CaptureContext ?? _foregroundContextService.Capture());
+                finalText = await Task.Run(() => _postProcessingService.TryProcess(finalText, ruleContext));
             }
 
             var insertionResult = await _textInsertionService.InsertAsync(
@@ -513,7 +522,8 @@ public sealed class DictationCoordinator
 
     private async Task<string> DecodeOfflineAsync(RecordedAudio audio)
     {
-        var trimmed = AudioSilenceTrimmer.Trim(audio.Samples, 16000);
+        // 静音裁剪是对整段录音的全量扫描+拷贝，放线程池执行，避免阻塞调用方（UI continuation）。
+        var trimmed = await Task.Run(() => AudioSilenceTrimmer.Trim(audio.Samples, 16000));
         if (trimmed.Length < 1600)
         {
             _logger.Info("未检测到清晰语音，已忽略本次听写。");

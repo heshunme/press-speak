@@ -135,6 +135,40 @@ public sealed class DictationCoordinatorTests
         Assert.Equal(new[] { "尾字保留" }, harness.TextInsertion.InsertedTexts);
     }
 
+    [Fact]
+    public async Task FinalizeRecordingAsync_RunsPunctuationAndPostProcessingOffCallerSynchronizationContext()
+    {
+        // 结束路径由 UI continuation 驱动；标点（原生推理）与后处理（正则管线）是 CPU 重活，
+        // 必须经 Task.Run 放线程池（其内部 SynchronizationContext.Current 为 null），
+        // 不能占着调用方上下文同步执行。
+        var previousContext = SynchronizationContext.Current;
+        SynchronizationContext.SetSynchronizationContext(new PassthroughSynchronizationContext());
+        try
+        {
+            using var harness = new CoordinatorHarness();
+            harness.Settings.Save(new AppSettings
+            {
+                RecognitionMode = RecognitionMode.NonStreaming,
+                EnableStreamingPreview = false,
+                EnablePostProcessingRules = true
+            });
+
+            await harness.Coordinator.BeginRecordingAsync();
+            await harness.Coordinator.FinalizeRecordingAsync();
+            await harness.TextInsertion.InsertCalled.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+            Assert.True(harness.PunctuationService.TryAddPunctuationCalled);
+            Assert.Null(harness.PunctuationService.TryAddPunctuationContext);
+            Assert.True(harness.PostProcessingService.TryProcessCalled);
+            Assert.Null(harness.PostProcessingService.TryProcessContext);
+            Assert.Equal(new[] { "尾字保留" }, harness.TextInsertion.InsertedTexts);
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(previousContext);
+        }
+    }
+
     private sealed class CoordinatorHarness : IDisposable
     {
         private readonly string _tempDirectory;
@@ -201,9 +235,9 @@ public sealed class DictationCoordinatorTests
 
         private FakeStreamingAsrEngine StreamingAsrEngine { get; }
 
-        private FakePunctuationService PunctuationService { get; }
+        public FakePunctuationService PunctuationService { get; }
 
-        private FakePostProcessingService PostProcessingService { get; }
+        public FakePostProcessingService PostProcessingService { get; }
 
         private FakeForegroundContextService ForegroundContextService { get; }
 
@@ -287,11 +321,9 @@ public sealed class DictationCoordinatorTests
     {
         public bool IsReady => true;
 
-        public Task InitializeAsync(CancellationToken ct = default) => Task.CompletedTask;
+        public Task InitializeAsync(CancellationToken ct = default, bool forceReprovision = false) => Task.CompletedTask;
 
-        public void Unload()
-        {
-        }
+        public Task UnloadAsync() => Task.CompletedTask;
 
         public Task<AsrResult> TranscribeAsync(float[] pcm16kMono, CancellationToken ct = default) =>
             Task.FromResult(new AsrResult
@@ -309,11 +341,9 @@ public sealed class DictationCoordinatorTests
     {
         public bool IsReady => true;
 
-        public Task InitializeAsync(CancellationToken ct = default) => Task.CompletedTask;
+        public Task InitializeAsync(CancellationToken ct = default, bool forceReprovision = false) => Task.CompletedTask;
 
-        public void Unload()
-        {
-        }
+        public Task UnloadAsync() => Task.CompletedTask;
 
         public IStreamingAsrSession CreateSession() => new FakeStreamingAsrSession();
 
@@ -342,11 +372,20 @@ public sealed class DictationCoordinatorTests
 
         public bool IsReady => true;
 
+        public bool TryAddPunctuationCalled { get; private set; }
+
+        public SynchronizationContext? TryAddPunctuationContext { get; private set; }
+
         public void Reload(PunctuationRuntimeOptions options)
         {
         }
 
-        public string TryAddPunctuation(string text) => text;
+        public string TryAddPunctuation(string text)
+        {
+            TryAddPunctuationCalled = true;
+            TryAddPunctuationContext = SynchronizationContext.Current;
+            return text;
+        }
 
         public void Dispose()
         {
@@ -355,7 +394,16 @@ public sealed class DictationCoordinatorTests
 
     private sealed class FakePostProcessingService : IPostProcessingService
     {
-        public string TryProcess(string input, RuleExecutionContext context) => input;
+        public bool TryProcessCalled { get; private set; }
+
+        public SynchronizationContext? TryProcessContext { get; private set; }
+
+        public string TryProcess(string input, RuleExecutionContext context)
+        {
+            TryProcessCalled = true;
+            TryProcessContext = SynchronizationContext.Current;
+            return input;
+        }
 
         public PostProcessingTraceResult TestProcess(string input, RuleExecutionContext context) =>
             new()
@@ -402,6 +450,13 @@ public sealed class DictationCoordinatorTests
                 Method = "test"
             });
         }
+    }
+
+    /// <summary>把回调直接转投线程池的同步上下文：让 await continuation 能推进，同时可被测试识别。</summary>
+    private sealed class PassthroughSynchronizationContext : SynchronizationContext
+    {
+        public override void Post(SendOrPostCallback d, object? state) =>
+            ThreadPool.QueueUserWorkItem(_ => d(state));
     }
 
     private sealed class FakeNotificationService : INotificationService

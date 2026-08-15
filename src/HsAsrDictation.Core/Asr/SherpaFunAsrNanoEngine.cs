@@ -17,6 +17,7 @@ public sealed class SherpaFunAsrNanoEngine : IAsrEngine
     private OfflineRecognizer? _recognizer;
     private string? _activeModelDirectory;
     private string? _activeHotwords;
+    private EngineInitFingerprint? _activeFingerprint;
 
     public SherpaFunAsrNanoEngine(
         IModelProvisioningService modelProvisioningService,
@@ -28,15 +29,26 @@ public sealed class SherpaFunAsrNanoEngine : IAsrEngine
         _logger = logger;
     }
 
-    public bool IsReady => _recognizer is not null;
+    public bool IsReady => Volatile.Read(ref _recognizer) is not null;
 
-    public async Task InitializeAsync(CancellationToken ct = default)
+    public async Task InitializeAsync(CancellationToken ct = default, bool forceReprovision = false)
     {
         // _initLock 序列化并发初始化（启动预热、设置保存 reinit、Transcribe 前置检查可能重叠），
         // 避免重复构建识别器导致落败一方的原生内存泄漏。
         await _initLock.WaitAsync(ct);
         try
         {
+            var fingerprint = EngineInitFingerprint.Capture(_settingsService.Current, AsrModelKind.Offline);
+
+            // 已按当前设置初始化时短路：每次听写都会经 TranscribeAsync 走到这里，
+            // 跳过重复的目录校验与日志；显式重建（设置保存/重下载）用 forceReprovision 强制。
+            if (!forceReprovision &&
+                Volatile.Read(ref _recognizer) is not null &&
+                _activeFingerprint?.Matches(fingerprint) == true)
+            {
+                return;
+            }
+
             var ready = await _modelProvisioningService.EnsureReadyAsync(
                 AsrModelKind.Offline,
                 _settingsService.Current.AutoDownloadModel,
@@ -80,6 +92,7 @@ public sealed class SherpaFunAsrNanoEngine : IAsrEngine
                 _recognizer = recognizer;
                 _activeModelDirectory = ready.ModelDirectory;
                 _activeHotwords = hotwords;
+                _activeFingerprint = fingerprint;
             }
             finally
             {
@@ -140,6 +153,11 @@ public sealed class SherpaFunAsrNanoEngine : IAsrEngine
                 Error = string.IsNullOrWhiteSpace(text) ? "模型未返回文本。" : null
             };
         }
+        catch (OperationCanceledException)
+        {
+            // 取消是正常控制流，不应记为解码失败。
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.Error("ASR 解码失败。", ex);
@@ -158,20 +176,22 @@ public sealed class SherpaFunAsrNanoEngine : IAsrEngine
 
     public void Dispose()
     {
-        Unload();
+        UnloadAsync().GetAwaiter().GetResult();
         _decodeLock.Dispose();
         _initLock.Dispose();
     }
 
-    public void Unload()
+    public async Task UnloadAsync()
     {
-        _decodeLock.Wait();
+        // 异步等待解码锁：与进行中的 Transcribe 互斥，但不阻塞调用线程（UI continuation）。
+        await _decodeLock.WaitAsync(CancellationToken.None);
         try
         {
             _recognizer?.Dispose();
             _recognizer = null;
             _activeModelDirectory = null;
             _activeHotwords = null;
+            _activeFingerprint = null;
         }
         finally
         {

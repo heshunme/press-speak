@@ -21,11 +21,16 @@ public sealed class ModelResidencyManager
         _streamingAsrEngine = streamingAsrEngine;
     }
 
+    /// <param name="allowUnload">
+    /// 卸载许可探针（通常是"当前是否空闲"）：不信任调用方传入时刻的快照，
+    /// 在持有 <see cref="_reconcileLock"/>、真正卸载前实时求值——
+    /// 等锁与 provisioning IO 期间用户可能已经开始录音。
+    /// </param>
     public Task<ModelResidencyResult> EnsureModeReadyAsync(
         RecognitionMode mode,
         bool downloadIfMissing,
         bool reinitialize,
-        bool allowUnload,
+        Func<bool> allowUnload,
         CancellationToken ct = default) =>
         ReconcileAsync(
             mode,
@@ -34,10 +39,11 @@ public sealed class ModelResidencyManager
             kind => _modelProvisioningService.EnsureReadyAsync(kind, downloadIfMissing, ct),
             ct);
 
+    /// <param name="allowUnload">同 <see cref="EnsureModeReadyAsync"/>，卸载前实时求值。</param>
     public Task<ModelResidencyResult> RedownloadModeAsync(
         RecognitionMode mode,
         bool reinitialize,
-        bool allowUnload,
+        Func<bool> allowUnload,
         CancellationToken ct = default) =>
         ReconcileAsync(
             mode,
@@ -49,7 +55,7 @@ public sealed class ModelResidencyManager
     private async Task<ModelResidencyResult> ReconcileAsync(
         RecognitionMode mode,
         bool reinitialize,
-        bool allowUnload,
+        Func<bool> allowUnload,
         Func<AsrModelKind, Task<ModelReadyResult>> provisionAsync,
         CancellationToken ct)
     {
@@ -67,7 +73,7 @@ public sealed class ModelResidencyManager
     private async Task<ModelResidencyResult> ReconcileCoreAsync(
         RecognitionMode mode,
         bool reinitialize,
-        bool allowUnload,
+        Func<bool> allowUnload,
         Func<AsrModelKind, Task<ModelReadyResult>> provisionAsync,
         CancellationToken ct)
     {
@@ -81,9 +87,9 @@ public sealed class ModelResidencyManager
                     return offlineReady;
                 }
 
-                if (allowUnload)
+                if (allowUnload())
                 {
-                    _streamingAsrEngine.Unload();
+                    await _streamingAsrEngine.UnloadAsync();
                 }
 
                 return ModelResidencyResult.Ready();
@@ -96,9 +102,9 @@ public sealed class ModelResidencyManager
                     return streamingReady;
                 }
 
-                if (allowUnload)
+                if (allowUnload())
                 {
-                    _asrEngine.Unload();
+                    await _asrEngine.UnloadAsync();
                 }
 
                 return ModelResidencyResult.Ready();
@@ -137,7 +143,8 @@ public sealed class ModelResidencyManager
 
         if (reinitialize || !_asrEngine.IsReady)
         {
-            await _asrEngine.InitializeAsync(ct);
+            // 显式重建必须强制 provisioning（例如重下载后目录路径未变），不能走指纹短路。
+            await _asrEngine.InitializeAsync(ct, forceReprovision: reinitialize);
         }
 
         return ModelResidencyResult.Ready();
@@ -156,7 +163,8 @@ public sealed class ModelResidencyManager
 
         if (reinitialize || !_streamingAsrEngine.IsReady)
         {
-            await _streamingAsrEngine.InitializeAsync(ct);
+            // 显式重建必须强制 provisioning（例如重下载后目录路径未变），不能走指纹短路。
+            await _streamingAsrEngine.InitializeAsync(ct, forceReprovision: reinitialize);
         }
 
         return ModelResidencyResult.Ready();
