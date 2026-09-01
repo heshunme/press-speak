@@ -188,6 +188,9 @@
                         <CheckBox Content="SendInput 失败时允许剪贴板回退" IsChecked="{Binding AllowClipboardFallback}" />
                         <CheckBox Content="启用标点" IsChecked="{Binding EnablePunctuation}" />
                         <CheckBox Content="启用实时流式预览" IsChecked="{Binding EnableStreamingPreview}" />
+                        <CheckBox Content="启用 VAD 分段解码"
+                                  IsChecked="{Binding EnableVadSegmentedDecoding}"
+                                  ToolTip="非流式模式下按语音停顿分段、边说边解码，缩短松开热键后的等待。关闭则回到整段解码。" />
                         <CheckBox Content="登录 Windows 后自动启动"
                                   IsChecked="{Binding StartWithWindows}"
                                   IsEnabled="{Binding IsStartupRegistrationAvailable}" />

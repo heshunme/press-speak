@@ -55,6 +55,21 @@ public sealed class SettingsServiceTests : IDisposable
     }
 
     [Fact]
+    public void Load_LegacySettingsWithoutVadToggle_DefaultsToEnabled()
+    {
+        var settingsPath = Path.Combine(_tempDirectory, "settings.json");
+        // 模拟接入分段解码之前写下的配置文件：完全没有该键。
+        File.WriteAllText(settingsPath, "{ \"EnablePunctuation\": true }");
+
+        using var logger = new LocalLogService(Path.Combine(_tempDirectory, "logs"));
+        var service = new SettingsService(settingsPath, logger);
+        service.Load();
+
+        Assert.True(service.Current.EnableVadSegmentedDecoding);
+        Assert.True(service.Current.EnablePunctuation);
+    }
+
+    [Fact]
     public void Save_WhenWriteFails_DoesNotRaiseSettingsChangedOrMutateCurrent()
     {
         var service = CreateService(out var logger);

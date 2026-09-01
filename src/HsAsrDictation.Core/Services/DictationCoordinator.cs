@@ -20,6 +20,9 @@ namespace HsAsrDictation.Services;
 /// </summary>
 public sealed class DictationCoordinator
 {
+    /// <summary>自适应尾录的轮询间隔：足够细以尽早结束，又不至于空转。</summary>
+    private static readonly TimeSpan TailPollInterval = TimeSpan.FromMilliseconds(50);
+
     private readonly SettingsService _settingsService;
     private readonly IAudioCaptureService _audioCaptureService;
     private readonly IModelProvisioningService _modelProvisioningService;
@@ -33,6 +36,8 @@ public sealed class DictationCoordinator
     private readonly ITextInsertionService _textInsertionService;
     private readonly INotificationService _notificationService;
     private readonly LocalLogService _logger;
+    private readonly IAudioSegmenterFactory _audioSegmenterFactory;
+    private readonly SegmentedDecodeOptions _segmentedDecodeOptions;
     private readonly TimeSpan? _hotkeyReleaseTailDurationOverride;
 
     private readonly object _sync = new();
@@ -53,7 +58,9 @@ public sealed class DictationCoordinator
         ITextInsertionService textInsertionService,
         INotificationService notificationService,
         LocalLogService logger,
-        TimeSpan? hotkeyReleaseTailDuration = null)
+        TimeSpan? hotkeyReleaseTailDuration = null,
+        IAudioSegmenterFactory? audioSegmenterFactory = null,
+        SegmentedDecodeOptions? segmentedDecodeOptions = null)
     {
         if (hotkeyReleaseTailDuration is { } tailDuration && tailDuration < TimeSpan.Zero)
         {
@@ -76,6 +83,9 @@ public sealed class DictationCoordinator
         _textInsertionService = textInsertionService;
         _notificationService = notificationService;
         _logger = logger;
+        _segmentedDecodeOptions = segmentedDecodeOptions ?? SegmentedDecodeOptions.Default;
+        _audioSegmenterFactory = audioSegmenterFactory
+            ?? new SileroVadSegmenterFactory(_segmentedDecodeOptions, logger);
         _hotkeyReleaseTailDurationOverride = hotkeyReleaseTailDuration;
 
         _audioCaptureService.AudioChunkAvailable += OnAudioChunkAvailable;
@@ -319,6 +329,21 @@ public sealed class DictationCoordinator
     {
         session.SetCaptureContext(_foregroundContextService.Capture());
 
+        // 分段解码只作用于非流式模式：混合模式与纯流式已有自己的边说边识别通路。
+        if (session.Settings.RecognitionMode == RecognitionMode.NonStreaming &&
+            session.Settings.EnableVadSegmentedDecoding)
+        {
+            if (session.TryInitializeSegmentedDecode(
+                    _audioSegmenterFactory,
+                    _asrEngine,
+                    _segmentedDecodeOptions,
+                    PublishStatus,
+                    _logger))
+            {
+                _logger.Info("已启用 VAD 分段解码。");
+            }
+        }
+
         if (session.Settings.RecognitionMode != RecognitionMode.NonStreaming)
         {
             try
@@ -363,7 +388,7 @@ public sealed class DictationCoordinator
     {
         try
         {
-            await Task.Delay(session.HotkeyReleaseTailDuration, delayedFinalizeCts.Token);
+            await WaitForHotkeyReleaseTailAsync(session, delayedFinalizeCts.Token);
 
             if (!TryEnterFinalization(session, delayedFinalizeCts, out _))
             {
@@ -379,6 +404,39 @@ public sealed class DictationCoordinator
         finally
         {
             delayedFinalizeCts.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// 尾录等待。启用分段解码时把配置时长当作上限：一旦确认用户已停止说话且没有待解码的段，
+    /// 就提前结束等待（自适应尾录），常见的"说完一句再松手"能省掉整段尾录时间。
+    /// 未启用分段时按配置时长固定等待，与既有行为一致。
+    /// </summary>
+    private async Task WaitForHotkeyReleaseTailAsync(RecordingSession session, CancellationToken ct)
+    {
+        if (!session.SegmentedDecodeEnabled)
+        {
+            await Task.Delay(session.HotkeyReleaseTailDuration, ct);
+            return;
+        }
+
+        var deadline = DateTime.UtcNow + session.HotkeyReleaseTailDuration;
+        while (DateTime.UtcNow < deadline)
+        {
+            if (session.CanSkipHotkeyReleaseTail)
+            {
+                _logger.Info("松键时已停止说话且无待解码分段，跳过剩余尾录。");
+                return;
+            }
+
+            var remaining = deadline - DateTime.UtcNow;
+            var step = remaining < TailPollInterval ? remaining : TailPollInterval;
+            if (step <= TimeSpan.Zero)
+            {
+                break;
+            }
+
+            await Task.Delay(step, ct);
         }
     }
 
@@ -421,6 +479,8 @@ public sealed class DictationCoordinator
 
             var finalText = session.Settings.RecognitionMode switch
             {
+                RecognitionMode.NonStreaming when session.SegmentedDecodeEnabled =>
+                    await DecodeSegmentedAsync(audio, session),
                 RecognitionMode.NonStreaming => await DecodeOfflineAsync(audio),
                 RecognitionMode.Hybrid => await DecodeHybridAsync(audio, session, streamingFinalText),
                 RecognitionMode.StreamingOnly => DecodeStreamingOnly(session, streamingFinalText),
@@ -461,8 +521,8 @@ public sealed class DictationCoordinator
         }
         finally
         {
-            // 无论哪条路径（含 StopAsync 抛异常），都先把流式管线收尾（幂等），
-            // 确保循环任务退出后再 Dispose 会话，避免释放正在使用的原生流。
+            // 无论哪条路径（含 StopAsync 抛异常），都先把两条管线收尾（都幂等），
+            // 确保循环任务退出后再释放会话，避免释放正在使用的原生流/原生 VAD。
             try
             {
                 await session.CompleteStreamingAsync();
@@ -472,7 +532,16 @@ public sealed class DictationCoordinator
                 _logger.Error("结束流式识别管线失败。", completeException);
             }
 
-            session.Dispose();
+            try
+            {
+                await session.CompleteSegmentedDecodeAsync();
+            }
+            catch (Exception completeException)
+            {
+                _logger.Error("结束分段解码管线失败。", completeException);
+            }
+
+            await session.DisposeAsync();
             lock (_sync)
             {
                 if (ReferenceEquals(_session, session))
@@ -533,6 +602,10 @@ public sealed class DictationCoordinator
         SetState(DictationState.Decoding);
         var asrResult = await _asrEngine.TranscribeAsync(trimmed);
 
+        // 解码耗时是分段解码参数校准的唯一依据（固定开销多大、RTF 是否小于 1），
+        // 而 RTF 只能在真机上量；这里落日志供回归时读取。
+        LogDecodeLatency("整段", asrResult);
+
         if (!asrResult.Success || string.IsNullOrWhiteSpace(asrResult.Text))
         {
             _notificationService.Warn(AppInfo.Title, asrResult.Error ?? "识别未返回文本。");
@@ -540,6 +613,32 @@ public sealed class DictationCoordinator
         }
 
         return DictationTextNormalizer.Normalize(asrResult.Text);
+    }
+
+    /// <summary>
+    /// 分段解码收尾：等管线排空并取回拼接文本。管线失败或没拿到任何文本时回落整段解码——
+    /// 全量缓冲一直保留，所以回落不会丢内容。
+    /// </summary>
+    private async Task<string> DecodeSegmentedAsync(RecordedAudio audio, RecordingSession session)
+    {
+        SetState(DictationState.Decoding);
+        var segmentedText = await session.CompleteSegmentedDecodeAsync();
+
+        if (session.SegmentedDecodeFailed)
+        {
+            _logger.Warn("分段解码管线失败，回落整段解码。");
+            return await DecodeOfflineAsync(audio);
+        }
+
+        if (!string.IsNullOrWhiteSpace(segmentedText))
+        {
+            return segmentedText;
+        }
+
+        // 分段没产出文本：可能是全程静音，也可能每批都解码失败。
+        // 交给整段解码再判一次，它会在确实无语音时给出"未检测到清晰语音"。
+        _logger.Info("分段解码未产出文本，回落整段解码。");
+        return await DecodeOfflineAsync(audio);
     }
 
     private async Task<string> DecodeHybridAsync(
@@ -576,6 +675,17 @@ public sealed class DictationCoordinator
         }
 
         return streamingFinalText;
+    }
+
+    private void LogDecodeLatency(string scope, AsrResult result)
+    {
+        var audioSeconds = result.AudioDuration.TotalSeconds;
+        var decodeSeconds = result.DecodeLatency.TotalSeconds;
+        var rtf = audioSeconds > 0 ? decodeSeconds / audioSeconds : 0d;
+
+        _logger.Info(
+            $"离线解码耗时（{scope}）：音频 {audioSeconds:0.00} s，解码 {decodeSeconds * 1000:0} ms，RTF {rtf:0.00}，" +
+            $"文本 {result.Text.Length} 字。");
     }
 
     private bool TryCancelPendingTailFinalize()

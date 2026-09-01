@@ -45,6 +45,7 @@ public sealed class SettingsWindowViewModel : INotifyPropertyChanged
         AutoDownloadModel = settings.AutoDownloadModel;
         EnablePunctuation = settings.EnablePunctuation;
         EnableStreamingPreview = settings.EnableStreamingPreview;
+        EnableVadSegmentedDecoding = settings.EnableVadSegmentedDecoding;
         IsStartupRegistrationAvailable = startupRegistrationMode.HasValue;
         StartupRegistrationErrorMessage = string.IsNullOrWhiteSpace(startupRegistrationErrorMessage)
             ? IsStartupRegistrationAvailable
@@ -89,6 +90,8 @@ public sealed class SettingsWindowViewModel : INotifyPropertyChanged
     public bool EnablePunctuation { get; set; }
 
     public bool EnableStreamingPreview { get; set; }
+
+    public bool EnableVadSegmentedDecoding { get; set; }
 
     public bool StartWithWindows
     {
@@ -211,6 +214,7 @@ public sealed class SettingsWindowViewModel : INotifyPropertyChanged
             EnablePostProcessingRules = PostProcessing.IsRuleSystemEnabled,
             RecognitionMode = SelectedRecognitionMode.Mode,
             EnableStreamingPreview = EnableStreamingPreview,
+            EnableVadSegmentedDecoding = EnableVadSegmentedDecoding,
             MaxRecordingDurationSeconds = maxRecordingDurationSeconds,
             HotkeyReleaseTailDurationMilliseconds = hotkeyReleaseTailDurationMilliseconds,
             Hotkey = CandidateHotkey.CreateCopy(),

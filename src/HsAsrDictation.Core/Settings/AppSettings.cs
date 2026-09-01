@@ -36,6 +36,11 @@ public sealed class AppSettings
 
     public bool EnableStreamingPreview { get; init; } = true;
 
+    /// <summary>
+    /// 非流式模式下按语音停顿分段、边说边解码，缩短松键后的等待。关闭则回到整段解码。
+    /// </summary>
+    public bool EnableVadSegmentedDecoding { get; init; } = true;
+
     public int MaxRecordingDurationSeconds { get; init; } = DefaultMaxRecordingDurationSeconds;
 
     public int HotkeyReleaseTailDurationMilliseconds { get; init; } = DefaultHotkeyReleaseTailDurationMilliseconds;
@@ -80,6 +85,7 @@ public sealed class AppSettings
             EnablePostProcessingRules = EnablePostProcessingRules,
             RecognitionMode = RecognitionMode,
             EnableStreamingPreview = EnableStreamingPreview,
+            EnableVadSegmentedDecoding = EnableVadSegmentedDecoding,
             MaxRecordingDurationSeconds = maxRecordingDurationSeconds,
             HotkeyReleaseTailDurationMilliseconds = hotkeyReleaseTailDurationMilliseconds,
             Hotwords = HotwordsNormalizer.NormalizeToStorage(Hotwords)

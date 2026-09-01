@@ -110,6 +110,22 @@ public sealed class SettingsWindowViewModelTests
     }
 
     [Fact]
+    public void ToSettings_CarriesVadSegmentedDecodingToggle()
+    {
+        var viewModel = CreateViewModel(StartupRegistrationMode.Disabled);
+        Assert.True(viewModel.EnableVadSegmentedDecoding);
+
+        viewModel.EnableVadSegmentedDecoding = false;
+
+        var settings = viewModel.ToSettings(
+            AppSettings.DefaultMaxRecordingDurationSeconds,
+            AppSettings.DefaultHotkeyReleaseTailDurationMilliseconds);
+
+        Assert.False(settings.EnableVadSegmentedDecoding);
+        Assert.False(settings.Normalize().EnableVadSegmentedDecoding);
+    }
+
+    [Fact]
     public void ToSettings_CarriesHotwordsText_AndNormalizeCanonicalizesIt()
     {
         var viewModel = CreateViewModel(StartupRegistrationMode.Disabled);

@@ -25,6 +25,12 @@
     <None Update="app.manifest">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </None>
+    <!-- Silero VAD 模型随产物分发（643 KB，不走下载）；目录结构与 VadModelLocator 约定一致。 -->
+    <Content Include="Resources\Vad\silero_vad.onnx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <TargetPath>Resources\Vad\silero_vad.onnx</TargetPath>
+    </Content>
     <Content Include="Resources\press-speak-admin-autostart.cmd">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
