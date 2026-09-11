@@ -16,6 +16,8 @@ internal static class Win32
     public const uint LLKHF_UP = 0x80;
     public const uint MAPVK_VK_TO_VSC = 0x00;
     public const uint MAPVK_VSC_TO_VK_EX = 0x03;
+    public const uint MONITOR_DEFAULTTONEAREST = 0x00000002;
+    public const int MDT_EFFECTIVE_DPI = 0;
     private const uint InputKeyboard = 1;
     private const uint KeyEventFKeyUp = 0x0002;
     private const uint KeyEventFUnicode = 0x0004;
@@ -37,6 +39,23 @@ internal static class Win32
 
     [DllImport("user32.dll")]
     public static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr MonitorFromPoint(POINT pt, uint dwFlags);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetCursorPos(out POINT lpPoint);
+
+    [DllImport("shcore.dll")]
+    public static extern int GetDpiForMonitor(IntPtr hmonitor, int dpiType, out uint dpiX, out uint dpiY);
 
     [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     public static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder lpString, int nMaxCount);
@@ -150,5 +169,30 @@ internal static class Win32
         public uint flags;
         public uint time;
         public IntPtr dwExtraInfo;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct POINT
+    {
+        public int X;
+        public int Y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RECT
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MONITORINFO
+    {
+        public uint cbSize;
+        public RECT rcMonitor;
+        public RECT rcWork;
+        public uint dwFlags;
     }
 }
