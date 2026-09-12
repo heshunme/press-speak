@@ -57,6 +57,32 @@
         "preserveCase": true,
         "onlyAsciiLetters": true
       }
+    },
+    {
+      "id": "builtin.chinese-number-normalize",
+      "name": "数字规范化",
+      "description": "将明确的中文数值转成阿拉伯数字，保留约数、歧义表达和编号前导零",
+      "kind": "built_in_transform",
+      "isEnabled": true,
+      "isBuiltIn": true,
+      "order": 410,
+      "parameters": {
+        "transformName": "chinese_number_normalize",
+        "convertPercentages": true,
+        "normalizeDecimalSpacing": true
+      }
+    },
+    {
+      "id": "builtin.english-case-normalize",
+      "name": "英文大小写规范化",
+      "description": "将全大写普通英文转为小写，按术语词表保留 API、GPT、ChatGPT 等标准拼写",
+      "kind": "built_in_transform",
+      "isEnabled": true,
+      "isBuiltIn": true,
+      "order": 420,
+      "parameters": {
+        "transformName": "english_case_normalize"
+      }
     }
   ]
 }

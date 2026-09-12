@@ -18,15 +18,15 @@ public sealed class PostProcessingRuleFactory : IPostProcessingRuleFactory
 
     public IPostProcessingRule? Create(RuleDefinition definition)
     {
-        var (ok, error) = RuleValidator.ValidateRule(definition);
-        if (!ok)
-        {
-            _logger.Warn($"后处理规则已跳过：{error}");
-            return null;
-        }
-
         try
         {
+            var (ok, error) = RuleValidator.ValidateRule(definition);
+            if (!ok)
+            {
+                _logger.Warn($"后处理规则已跳过：{error}");
+                return null;
+            }
+
             return definition.Kind switch
             {
                 "exact_replace" => new ExactReplaceRule(
@@ -69,6 +69,13 @@ public sealed class PostProcessingRuleFactory : IPostProcessingRuleFactory
                 definition.IsEnabled,
                 RuleValidator.GetInt(definition.Parameters, "minLetters", 2),
                 RuleValidator.GetInt(definition.Parameters, "maxLetters", 8)),
+            "chinese_number_normalize" => new ChineseNumberNormalizeRule(
+                definition.Id, definition.Name, definition.Order, definition.IsEnabled,
+                RuleValidator.GetBool(definition.Parameters, "convertPercentages", true),
+                RuleValidator.GetBool(definition.Parameters, "normalizeDecimalSpacing", true)),
+            "english_case_normalize" => new EnglishCaseNormalizeRule(
+                definition.Id, definition.Name, definition.Order, definition.IsEnabled,
+                RuleValidator.GetString(definition.Parameters, "canonicalTerms") ?? EnglishCaseNormalizeRule.DefaultCanonicalTerms),
             _ => null
         };
     }

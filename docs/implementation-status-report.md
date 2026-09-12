@@ -26,7 +26,7 @@
 - 识别热词已实现：设置页可维护热词表（上限 100 个，保存时统一清洗为每行一个词），经 `OfflineFunAsrNanoModelConfig.Hotwords` 注入 FunASR-Nano 的 LLM prompt 做软偏置；仅作用于离线最终结果，流式预览不受影响。热词变化会按“模型目录 + 热词”组合指纹在下次识别前重建离线识别器，无需重启应用。
 - 设置页已扩展为页签结构，支持后处理规则列表、编辑、顺序调整、测试、保存和单条内置规则恢复默认。
 - 标点处理失败时会回退原始文本，不影响主流程。
-- 后处理规则系统已接入最终写回前链路，内置 `trim-whitespace`、`normalize-fullwidth-space`、`collapse-multiple-spaces` 和 `english-acronym-join` 四条默认规则。
+- 后处理规则系统已接入最终写回前链路，内置空白清理、缩写拼接、`chinese-number-normalize` 数字规范化及 `english-case-normalize` 英文大小写规范化等六条默认规则。新增规则可独立关闭，英文标准拼写词表可编辑，设置页支持测试预览和参数保存。
 - 用户可通过独立规则文件覆盖内置规则或新增自定义 `exact_replace` / `regex_replace` 规则。
 - 本地日志已实现，日志文件按日期落盘。
 - 支持通过 `--admin` 或托盘入口请求管理员模式，并在 UAC 取消时继续保留普通实例；提升子进程会核对发起账号 SID，改用另一管理员账号时拒绝启动。
@@ -57,7 +57,7 @@
 ## 尚未覆盖或未做完整验证
 
 - 实时流式上屏未实现，当前只提供录音期间的流式预览，不会把流式结果直接持续写回目标输入框。
-- 真正的 ITN 文本规整未实现（后续计划）。当前 `Itn = 1` 在本项目配置下实际不做任何规整：sherpa-onnx v1.12.34 的 `ApplyInverseTextNormalization` 只在配置了 `OfflineRecognizerConfig.RuleFsts`/`RuleFars`（kaldifst 规则 FST 文件）时才执行转换，项目未配置，因此该标志的唯一实际效果是去掉 prompt 里“不进行文本规整”后缀，数字风格由 LLM 自行决定、输出混杂（同一段话可能既出“三点五”又出“375 . 1236”，后者小数点两侧空格是 LLM tokenizer 解码痕迹）。2026-07-27 真机确认现状可接受，留作以后收敛，候选路径：
+- 通用数字 ITN 引擎尚未接入；现已用后处理规则覆盖明确数量、负数、小数、百分数及编号中的逐位数字，复杂日期/时间/分数/约数仍保持原样。当前 `Itn = 1` 在本项目配置下实际不做任何规整：sherpa-onnx v1.12.34 的 `ApplyInverseTextNormalization` 只在配置了 `OfflineRecognizerConfig.RuleFsts`/`RuleFars`（kaldifst 规则 FST 文件）时才执行转换，项目未配置，因此该标志的唯一实际效果是去掉 prompt 里“不进行文本规整”后缀，数字风格由 LLM 自行决定、输出混杂（同一段话可能既出“三点五”又出“375 . 1236”，后者小数点两侧空格是 LLM tokenizer 解码痕迹）。2026-07-27 真机确认现状可接受，留作以后收敛，候选路径：
   1. 分发 sherpa-onnx 官方中文数字 ITN FST（如 `itn_zh_number.fst`）并设置 `RuleFsts`，需纳入模型下载/校验流程；
   2. 先用后处理规则引擎加低成本规则，如数字间 `" . "` → `"."`（regex `(?<=\d)\s*\.\s*(?=\d)`）；
   3. 若新数字风格反馈不佳，把 `SherpaFunAsrNanoEngine` 里的 `Itn` 改回 0 即恢复旧 prompt 行为。

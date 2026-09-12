@@ -140,7 +140,7 @@ src/HsAsrDictation/
 
 ## 5. 默认内置规则
 
-当前实现内置 4 条规则，默认启用，来自嵌入资源 `Resources/PostProcessing/default-rules.json`。
+当前实现内置 6 条规则，默认启用，来自 Core 项目的嵌入资源 `Resources/PostProcessing/default-rules.json`。
 
 ### 5.1 trim-whitespace
 
@@ -175,6 +175,23 @@ src/HsAsrDictation/
 
 ---
 
+### 5.5 chinese-number-normalize
+
+* 类型：built_in_transform，`transformName = chinese_number_normalize`
+* 明确数量、负数、小数、百分数转阿拉伯数字；编号/号码上下文的逐位数字保留前导零。
+* 参数 `convertPercentages`、`normalizeDecimalSpacing` 默认均为 `true`，可分别关闭百分数和小数空格处理。
+* 采用完整候选和严格位值解析，不逐字替换；日期、时间、分数、约数、省略位值、未支持的混合数值保留原样。
+* 小数空格只在明确数值上下文或独立且点前带空格的表达式中清理。单独的 `3. 14` 保留，`数值是3. 14` 转成 `数值是3.14`。
+
+### 5.6 english-case-normalize
+
+* 类型：built_in_transform，`transformName = english_case_normalize`
+* 全大写普通英文转小写；已有标题式/混合大小写保留。独立 `I` 始终保留大写。
+* 参数 `canonicalTerms` 是标准拼写词表，按换行或中英文逗号分隔；支持完整多词术语，不跨换行匹配。
+* 参数缺省使用 `EnglishCaseNormalizeRule.DefaultCanonicalTerms`（含 API、GPT、ChatGPT、GitHub、VS Code 等）；空字符串表示不使用词表。
+* 两条新规则共用地址/路径/代码片段保护；已知结构不参与转换。未知专名及缩写可通过词表补充。
+* 设置页按变换类型提供专用编辑面板；参数支持保存、重载、复制及恢复默认。
+
 ## 6. 规则执行顺序
 
 当前实现按照 `Order` 升序执行，数值越小越早执行。
@@ -185,11 +202,15 @@ src/HsAsrDictation/
 2. `builtin.normalize-fullwidth-space` -> `200`
 3. `builtin.collapse-multiple-spaces` -> `300`
 4. `builtin.english-acronym-join` -> `400`
+5. `builtin.chinese-number-normalize` -> `410`
+6. `builtin.english-case-normalize` -> `420`
 
 说明：
 
 * 不再做“按类型分组再执行”的二次排序。
 * 不再额外做一次末尾 trim。
+* 新规则使用 `400` 后的空档，保证旧版界面默认追加的用户规则（从 `500` 开始）仍在最后执行；已有自定义排序保持原值。用户自行调整过的顺序仍以用户配置为准。
+* 设置界面保存时按当前列表重新编号（100、200……），保留相对顺序。新规则按新 ID 自动补入旧配置，不覆盖旧的总开关或单条规则配置。
 
 ---
 
@@ -698,6 +719,32 @@ public static class RegexSafetyValidator
         "maxLetters": 8,
         "preserveCase": true,
         "onlyAsciiLetters": true
+      }
+    },
+    {
+      "id": "builtin.chinese-number-normalize",
+      "name": "数字规范化",
+      "description": "将明确的中文数值转成阿拉伯数字，保留约数、歧义表达和编号前导零",
+      "kind": "built_in_transform",
+      "isEnabled": true,
+      "isBuiltIn": true,
+      "order": 410,
+      "parameters": {
+        "transformName": "chinese_number_normalize",
+        "convertPercentages": true,
+        "normalizeDecimalSpacing": true
+      }
+    },
+    {
+      "id": "builtin.english-case-normalize",
+      "name": "英文大小写规范化",
+      "description": "将全大写普通英文转为小写，按术语词表保留 API、GPT、ChatGPT 等标准拼写",
+      "kind": "built_in_transform",
+      "isEnabled": true,
+      "isBuiltIn": true,
+      "order": 420,
+      "parameters": {
+        "transformName": "english_case_normalize"
       }
     }
   ]

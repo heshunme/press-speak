@@ -41,13 +41,25 @@ public static class RuleValidator
             return (false, $"规则 {rule.Id} 的顺序不能小于 0。");
         }
 
-        return rule.Kind switch
+        try
         {
-            "exact_replace" => ValidateExactReplace(rule.Id, rule.Parameters),
-            "regex_replace" => ValidateRegexReplace(rule.Id, rule.Parameters),
-            "built_in_transform" => ValidateBuiltIn(rule.Id, rule.Parameters),
-            _ => (false, $"规则 {rule.Id} 的类型不受支持：{rule.Kind}")
-        };
+            if (rule.Parameters is null)
+            {
+                return (false, $"规则 {rule.Id} 的参数不能为空。");
+            }
+
+            return rule.Kind switch
+            {
+                "exact_replace" => ValidateExactReplace(rule.Id, rule.Parameters),
+                "regex_replace" => ValidateRegexReplace(rule.Id, rule.Parameters),
+                "built_in_transform" => ValidateBuiltIn(rule.Id, rule.Parameters),
+                _ => (false, $"规则 {rule.Id} 的类型不受支持：{rule.Kind}")
+            };
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or FormatException or OverflowException)
+        {
+            return (false, $"规则 {rule.Id} 的参数类型无效：{ex.Message}");
+        }
     }
 
     private static (bool Ok, string? Error) ValidateExactReplace(string ruleId, JsonObject parameters)
@@ -107,10 +119,26 @@ public static class RuleValidator
             }
         }
 
+        if (transformName == "chinese_number_normalize")
+        {
+            _ = GetBool(parameters, "convertPercentages", true);
+            _ = GetBool(parameters, "normalizeDecimalSpacing", true);
+        }
+        else if (transformName == "english_case_normalize")
+        {
+            var terms = GetString(parameters, "canonicalTerms");
+            if (terms?.Length > 32768)
+            {
+                return (false, $"规则 {ruleId} 的术语词表不能超过 32768 个字符。");
+            }
+        }
+
         return transformName switch
         {
             "trim_whitespace" => (true, null),
             "english_acronym_join" => (true, null),
+            "chinese_number_normalize" => (true, null),
+            "english_case_normalize" => (true, null),
             _ => (false, $"规则 {ruleId} 的内建变换不受支持：{transformName}")
         };
     }

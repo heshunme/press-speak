@@ -2,12 +2,15 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
 using HsAsrDictation.PostProcessing.Models;
+using HsAsrDictation.PostProcessing.Rules;
 using HsAsrDictation.PostProcessing.Validation;
 
 namespace HsAsrDictation.Views;
 
 public sealed class RuleItemViewModel : INotifyPropertyChanged
 {
+    private string _canonicalTerms = EnglishCaseNormalizeRule.DefaultCanonicalTerms;
+    private bool _convertPercentages = true;
     private string _description = string.Empty;
     private string _findText = string.Empty;
     private bool _ignoreCase;
@@ -15,6 +18,7 @@ public sealed class RuleItemViewModel : INotifyPropertyChanged
     private int _maxLetters = 8;
     private int _minLetters = 2;
     private string _name = string.Empty;
+    private bool _normalizeDecimalSpacing = true;
     private int _order;
     private string _pattern = string.Empty;
     private string _regexOptions = "None";
@@ -69,6 +73,7 @@ public sealed class RuleItemViewModel : INotifyPropertyChanged
                 OnPropertyChanged(nameof(IsRegexReplace));
                 OnPropertyChanged(nameof(IsBuiltInTransform));
                 OnPropertyChanged(nameof(IsKindEditable));
+                NotifyTransformPropertiesChanged();
             }
         }
     }
@@ -86,6 +91,18 @@ public sealed class RuleItemViewModel : INotifyPropertyChanged
     public bool IsRegexReplace => string.Equals(Kind, "regex_replace", StringComparison.Ordinal);
 
     public bool IsBuiltInTransform => string.Equals(Kind, "built_in_transform", StringComparison.Ordinal);
+
+    public bool IsEnglishAcronymJoin => IsBuiltInTransform &&
+        string.Equals(TransformName, "english_acronym_join", StringComparison.Ordinal);
+
+    public bool IsChineseNumberNormalize => IsBuiltInTransform &&
+        string.Equals(TransformName, "chinese_number_normalize", StringComparison.Ordinal);
+
+    public bool IsEnglishCaseNormalize => IsBuiltInTransform &&
+        string.Equals(TransformName, "english_case_normalize", StringComparison.Ordinal);
+
+    public bool IsTrimWhitespace => IsBuiltInTransform &&
+        string.Equals(TransformName, "trim_whitespace", StringComparison.Ordinal);
 
     public bool IsKindEditable => !IsBuiltIn;
 
@@ -128,7 +145,13 @@ public sealed class RuleItemViewModel : INotifyPropertyChanged
     public string TransformName
     {
         get => _transformName;
-        set => SetProperty(ref _transformName, value);
+        set
+        {
+            if (SetProperty(ref _transformName, value))
+            {
+                NotifyTransformPropertiesChanged();
+            }
+        }
     }
 
     public int MinLetters
@@ -141,6 +164,24 @@ public sealed class RuleItemViewModel : INotifyPropertyChanged
     {
         get => _maxLetters;
         set => SetProperty(ref _maxLetters, value);
+    }
+
+    public bool ConvertPercentages
+    {
+        get => _convertPercentages;
+        set => SetProperty(ref _convertPercentages, value);
+    }
+
+    public bool NormalizeDecimalSpacing
+    {
+        get => _normalizeDecimalSpacing;
+        set => SetProperty(ref _normalizeDecimalSpacing, value);
+    }
+
+    public string CanonicalTerms
+    {
+        get => _canonicalTerms;
+        set => SetProperty(ref _canonicalTerms, value);
     }
 
     public static RuleItemViewModel FromDefinition(RuleDefinition definition)
@@ -171,8 +212,21 @@ public sealed class RuleItemViewModel : INotifyPropertyChanged
         else if (definition.Kind == "built_in_transform")
         {
             viewModel.TransformName = RuleValidator.GetString(definition.Parameters, "transformName") ?? string.Empty;
-            viewModel.MinLetters = RuleValidator.GetInt(definition.Parameters, "minLetters", 2);
-            viewModel.MaxLetters = RuleValidator.GetInt(definition.Parameters, "maxLetters", 8);
+            if (viewModel.IsEnglishAcronymJoin)
+            {
+                viewModel.MinLetters = RuleValidator.GetInt(definition.Parameters, "minLetters", 2);
+                viewModel.MaxLetters = RuleValidator.GetInt(definition.Parameters, "maxLetters", 8);
+            }
+            else if (viewModel.IsChineseNumberNormalize)
+            {
+                viewModel.ConvertPercentages = RuleValidator.GetBool(definition.Parameters, "convertPercentages", true);
+                viewModel.NormalizeDecimalSpacing = RuleValidator.GetBool(definition.Parameters, "normalizeDecimalSpacing", true);
+            }
+            else if (viewModel.IsEnglishCaseNormalize)
+            {
+                viewModel.CanonicalTerms = RuleValidator.GetString(definition.Parameters, "canonicalTerms") ??
+                    EnglishCaseNormalizeRule.DefaultCanonicalTerms;
+            }
         }
 
         return viewModel;
@@ -197,7 +251,10 @@ public sealed class RuleItemViewModel : INotifyPropertyChanged
             RegexOptions = RegexOptions,
             TransformName = TransformName,
             MinLetters = MinLetters,
-            MaxLetters = MaxLetters
+            MaxLetters = MaxLetters,
+            ConvertPercentages = ConvertPercentages,
+            NormalizeDecimalSpacing = NormalizeDecimalSpacing,
+            CanonicalTerms = CanonicalTerms
         };
     }
 
@@ -227,6 +284,15 @@ public sealed class RuleItemViewModel : INotifyPropertyChanged
                 parameters["preserveCase"] = true;
                 parameters["onlyAsciiLetters"] = true;
             }
+            else if (IsChineseNumberNormalize)
+            {
+                parameters["convertPercentages"] = ConvertPercentages;
+                parameters["normalizeDecimalSpacing"] = NormalizeDecimalSpacing;
+            }
+            else if (IsEnglishCaseNormalize)
+            {
+                parameters["canonicalTerms"] = CanonicalTerms;
+            }
         }
 
         return new RuleDefinition
@@ -240,6 +306,14 @@ public sealed class RuleItemViewModel : INotifyPropertyChanged
             Order = Order,
             Parameters = parameters
         };
+    }
+
+    private void NotifyTransformPropertiesChanged()
+    {
+        OnPropertyChanged(nameof(IsEnglishAcronymJoin));
+        OnPropertyChanged(nameof(IsChineseNumberNormalize));
+        OnPropertyChanged(nameof(IsEnglishCaseNormalize));
+        OnPropertyChanged(nameof(IsTrimWhitespace));
     }
 
     private bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)

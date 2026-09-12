@@ -169,11 +169,33 @@ public sealed class DictationCoordinatorTests
         }
     }
 
+    [Theory]
+    [InlineData(RecognitionMode.NonStreaming)]
+    [InlineData(RecognitionMode.StreamingOnly)]
+    [InlineData(RecognitionMode.Hybrid)]
+    public async Task FinalizeRecordingAsync_NormalizesPunctuatedTextBeforeInsertion(RecognitionMode mode)
+    {
+        using var harness = new CoordinatorHarness(useRealPostProcessing: true);
+        harness.Settings.Save(new AppSettings
+        {
+            RecognitionMode = mode,
+            EnableStreamingPreview = mode != RecognitionMode.NonStreaming,
+            EnablePostProcessingRules = true
+        });
+        // Simulate punctuation returning uppercase words and Chinese numerals.
+        harness.PunctuationService.OutputOverride = "HELLO，G P T 有三十二个 A P I。";
+
+        await harness.Coordinator.BeginRecordingAsync();
+        await harness.Coordinator.FinalizeRecordingAsync();
+
+        Assert.Equal(new[] { "hello，GPT 有32个 API。" }, harness.TextInsertion.InsertedTexts);
+    }
+
     private sealed class CoordinatorHarness : IDisposable
     {
         private readonly string _tempDirectory;
 
-        public CoordinatorHarness(TimeSpan? tailDuration = null)
+        public CoordinatorHarness(TimeSpan? tailDuration = null, bool useRealPostProcessing = false)
         {
             _tempDirectory = Path.Combine(
                 Path.GetTempPath(),
@@ -209,7 +231,11 @@ public sealed class DictationCoordinatorTests
                 AsrEngine,
                 StreamingAsrEngine,
                 PunctuationService,
-                PostProcessingService,
+                useRealPostProcessing
+                    ? new PostProcessingService(
+                        new PostProcessingRuleRepository(Path.Combine(_tempDirectory, "rules.json"), Logger),
+                        new PostProcessingRuleFactory(Logger), Logger)
+                    : PostProcessingService,
                 ForegroundContextService,
                 TextInsertion,
                 NotificationService,
@@ -359,7 +385,7 @@ public sealed class DictationCoordinatorTests
         public StreamingAsrResult GetCurrentResult() => new();
 
         public ValueTask<StreamingAsrResult> CompleteAsync(CancellationToken ct = default) =>
-            ValueTask.FromResult(new StreamingAsrResult());
+            ValueTask.FromResult(new StreamingAsrResult { Text = "尾字保留" });
 
         public void Dispose()
         {
@@ -376,6 +402,8 @@ public sealed class DictationCoordinatorTests
 
         public SynchronizationContext? TryAddPunctuationContext { get; private set; }
 
+        public string? OutputOverride { get; set; }
+
         public void Reload(PunctuationRuntimeOptions options)
         {
         }
@@ -384,7 +412,7 @@ public sealed class DictationCoordinatorTests
         {
             TryAddPunctuationCalled = true;
             TryAddPunctuationContext = SynchronizationContext.Current;
-            return text;
+            return OutputOverride ?? text;
         }
 
         public void Dispose()

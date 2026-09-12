@@ -290,223 +290,259 @@
                                 BorderBrush="#FFE0E0E0"
                                 BorderThickness="1"
                                 CornerRadius="6">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="*" />
-                                </Grid.RowDefinitions>
-
-                                <TextBlock Grid.Row="0"
-                                           FontWeight="SemiBold"
-                                           Text="规则详情" />
-                                <TextBlock Grid.Row="1"
-                                           Margin="0,4,0,12"
-                                           Foreground="#FF666666"
-                                           Text="选中左侧规则后可编辑详情；内置规则支持修改并可恢复默认。"
-                                           TextWrapping="Wrap" />
-
-                                <Grid Grid.Row="2"
-                                      Margin="0,0,0,10">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="56" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="8" />
-                                        <ColumnDefinition Width="48" />
-                                        <ColumnDefinition Width="72" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0"
-                                               VerticalAlignment="Center"
-                                               Text="名称" />
-                                    <TextBox Grid.Column="1"
-                                             Height="28"
-                                             Text="{Binding PostProcessing.SelectedRule.Name, UpdateSourceTrigger=PropertyChanged}" />
-                                    <TextBlock Grid.Column="3"
-                                               VerticalAlignment="Center"
-                                               Text="顺序" />
-                                    <TextBox Grid.Column="4"
-                                             Height="28"
-                                             Text="{Binding PostProcessing.SelectedRule.Order, UpdateSourceTrigger=PropertyChanged}" />
-                                </Grid>
-
-                                <Grid Grid.Row="3"
-                                      Margin="0,0,0,10">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="56" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="12" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0"
-                                               VerticalAlignment="Center"
-                                               Text="类型" />
-                                    <ComboBox Grid.Column="1"
-                                              Height="28"
-                                              IsEnabled="{Binding PostProcessing.SelectedRule.IsKindEditable}"
-                                              ItemsSource="{StaticResource RuleKindOptions}"
-                                              SelectedItem="{Binding PostProcessing.SelectedRule.Kind}" />
-                                    <StackPanel Grid.Column="3"
-                                                Orientation="Horizontal"
-                                                VerticalAlignment="Center">
-                                        <TextBlock Margin="0,0,8,0"
-                                                   VerticalAlignment="Center"
-                                                   Text="状态" />
-                                        <CheckBox VerticalAlignment="Center"
-                                                  IsChecked="{Binding PostProcessing.SelectedRule.IsEnabled}" />
-                                    </StackPanel>
-                                </Grid>
-
-                                <Grid Grid.Row="4"
-                                      Margin="0,0,0,12">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="56" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0"
-                                               Margin="0,4,0,0"
-                                               VerticalAlignment="Top"
-                                               Text="描述" />
-                                    <TextBox Grid.Column="1"
-                                             AcceptsReturn="True"
-                                             Height="48"
-                                             Text="{Binding PostProcessing.SelectedRule.Description, UpdateSourceTrigger=PropertyChanged}"
-                                             TextWrapping="Wrap" />
-                                </Grid>
-
-                                <TextBlock Grid.Row="5"
-                                           Margin="0,0,0,8"
-                                           FontWeight="SemiBold"
-                                           Text="规则参数" />
-
-                                <Grid Grid.Row="6"
-                                      Visibility="{Binding PostProcessing.SelectedRule.IsExactReplace, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                          VerticalScrollBarVisibility="Auto">
+                                <Grid>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
-                                    </Grid.RowDefinitions>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="64" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Row="0"
-                                               Grid.Column="0"
-                                               VerticalAlignment="Center"
-                                               Text="查找文本" />
-                                    <TextBox Grid.Row="0"
-                                             Grid.Column="1"
-                                             Height="28"
-                                             Text="{Binding PostProcessing.SelectedRule.FindText, UpdateSourceTrigger=PropertyChanged}" />
-                                    <TextBlock Grid.Row="1"
-                                               Grid.Column="0"
-                                               Margin="0,10,0,0"
-                                               VerticalAlignment="Center"
-                                               Text="替换文本" />
-                                    <TextBox Grid.Row="1"
-                                             Grid.Column="1"
-                                             Margin="0,10,0,0"
-                                             Height="28"
-                                             Text="{Binding PostProcessing.SelectedRule.ReplaceText, UpdateSourceTrigger=PropertyChanged}" />
-                                    <CheckBox Grid.Row="2"
-                                              Grid.Column="1"
-                                              Margin="0,10,0,0"
-                                              Content="忽略大小写"
-                                              IsChecked="{Binding PostProcessing.SelectedRule.IgnoreCase}" />
-                                </Grid>
-
-                                <Grid Grid.Row="6"
-                                      Visibility="{Binding PostProcessing.SelectedRule.IsRegexReplace, Converter={StaticResource BoolToVisibilityConverter}}">
-                                    <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                    </Grid.RowDefinitions>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="96" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Row="0"
-                                               Grid.Column="0"
-                                               Margin="0,4,0,0"
-                                               VerticalAlignment="Top"
-                                               Text="Pattern" />
-                                    <TextBox Grid.Row="0"
-                                             Grid.Column="1"
-                                             AcceptsReturn="True"
-                                             Height="56"
-                                             Text="{Binding PostProcessing.SelectedRule.Pattern, UpdateSourceTrigger=PropertyChanged}"
-                                             TextWrapping="Wrap" />
-                                    <TextBlock Grid.Row="1"
-                                               Grid.Column="0"
-                                               Margin="0,10,0,0"
-                                               VerticalAlignment="Center"
-                                               Text="Replacement" />
-                                    <TextBox Grid.Row="1"
-                                             Grid.Column="1"
-                                             Margin="0,10,0,0"
-                                             Height="28"
-                                             Text="{Binding PostProcessing.SelectedRule.Replacement, UpdateSourceTrigger=PropertyChanged}" />
-                                    <TextBlock Grid.Row="2"
-                                               Grid.Column="0"
-                                               Margin="0,10,0,0"
-                                               VerticalAlignment="Center"
-                                               Text="Options" />
-                                    <TextBox Grid.Row="2"
-                                             Grid.Column="1"
-                                             Margin="0,10,0,0"
-                                             Height="28"
-                                             Text="{Binding PostProcessing.SelectedRule.RegexOptions, UpdateSourceTrigger=PropertyChanged}" />
-                                </Grid>
-
-                                <Grid Grid.Row="6"
-                                      Visibility="{Binding PostProcessing.SelectedRule.IsBuiltInTransform, Converter={StaticResource BoolToVisibilityConverter}}">
-                                    <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="*" />
                                     </Grid.RowDefinitions>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="72" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="8" />
-                                        <ColumnDefinition Width="72" />
-                                        <ColumnDefinition Width="80" />
-                                    </Grid.ColumnDefinitions>
+
                                     <TextBlock Grid.Row="0"
-                                               Grid.Column="0"
-                                               VerticalAlignment="Center"
-                                               Text="Transform" />
-                                    <TextBox Grid.Row="0"
-                                             Grid.Column="1"
-                                             Height="28"
-                                             IsReadOnly="True"
-                                             Text="{Binding PostProcessing.SelectedRule.TransformName}" />
+                                               FontWeight="SemiBold"
+                                               Text="规则详情" />
                                     <TextBlock Grid.Row="1"
-                                               Grid.Column="0"
-                                               Margin="0,10,0,0"
-                                               VerticalAlignment="Center"
-                                               Text="最少字母数" />
-                                    <TextBox Grid.Row="1"
-                                             Grid.Column="1"
-                                             Margin="0,10,0,0"
-                                             Height="28"
-                                             Text="{Binding PostProcessing.SelectedRule.MinLetters, UpdateSourceTrigger=PropertyChanged}" />
-                                    <TextBlock Grid.Row="1"
-                                               Grid.Column="3"
-                                               Margin="0,10,0,0"
-                                               VerticalAlignment="Center"
-                                               Text="最多字母数" />
-                                    <TextBox Grid.Row="1"
-                                             Grid.Column="4"
-                                             Margin="0,10,0,0"
-                                             Height="28"
-                                             Text="{Binding PostProcessing.SelectedRule.MaxLetters, UpdateSourceTrigger=PropertyChanged}" />
+                                               Margin="0,4,0,12"
+                                               Foreground="#FF666666"
+                                               Text="选中左侧规则后可编辑详情；内置规则支持修改并可恢复默认。"
+                                               TextWrapping="Wrap" />
+
+                                    <Grid Grid.Row="2"
+                                          Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="56" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="8" />
+                                            <ColumnDefinition Width="48" />
+                                            <ColumnDefinition Width="72" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0"
+                                                   VerticalAlignment="Center"
+                                                   Text="名称" />
+                                        <TextBox Grid.Column="1"
+                                                 Height="28"
+                                                 Text="{Binding PostProcessing.SelectedRule.Name, UpdateSourceTrigger=PropertyChanged}" />
+                                        <TextBlock Grid.Column="3"
+                                                   VerticalAlignment="Center"
+                                                   Text="顺序" />
+                                        <TextBox Grid.Column="4"
+                                                 Height="28"
+                                                 Text="{Binding PostProcessing.SelectedRule.Order, UpdateSourceTrigger=PropertyChanged}" />
+                                    </Grid>
+
+                                    <Grid Grid.Row="3"
+                                          Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="56" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0"
+                                                   VerticalAlignment="Center"
+                                                   Text="类型" />
+                                        <ComboBox Grid.Column="1"
+                                                  Height="28"
+                                                  IsEnabled="{Binding PostProcessing.SelectedRule.IsKindEditable}"
+                                                  ItemsSource="{StaticResource RuleKindOptions}"
+                                                  SelectedItem="{Binding PostProcessing.SelectedRule.Kind}" />
+                                        <StackPanel Grid.Column="3"
+                                                    Orientation="Horizontal"
+                                                    VerticalAlignment="Center">
+                                            <TextBlock Margin="0,0,8,0"
+                                                       VerticalAlignment="Center"
+                                                       Text="状态" />
+                                            <CheckBox VerticalAlignment="Center"
+                                                      IsChecked="{Binding PostProcessing.SelectedRule.IsEnabled}" />
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <Grid Grid.Row="4"
+                                          Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="56" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0"
+                                                   Margin="0,4,0,0"
+                                                   VerticalAlignment="Top"
+                                                   Text="描述" />
+                                        <TextBox Grid.Column="1"
+                                                 AcceptsReturn="True"
+                                                 Height="48"
+                                                 Text="{Binding PostProcessing.SelectedRule.Description, UpdateSourceTrigger=PropertyChanged}"
+                                                 TextWrapping="Wrap" />
+                                    </Grid>
+
+                                    <TextBlock Grid.Row="5"
+                                               Margin="0,0,0,8"
+                                               FontWeight="SemiBold"
+                                               Text="规则参数" />
+
+                                    <Grid Grid.Row="6"
+                                          Visibility="{Binding PostProcessing.SelectedRule.IsExactReplace, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="64" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Row="0"
+                                                   Grid.Column="0"
+                                                   VerticalAlignment="Center"
+                                                   Text="查找文本" />
+                                        <TextBox Grid.Row="0"
+                                                 Grid.Column="1"
+                                                 Height="28"
+                                                 Text="{Binding PostProcessing.SelectedRule.FindText, UpdateSourceTrigger=PropertyChanged}" />
+                                        <TextBlock Grid.Row="1"
+                                                   Grid.Column="0"
+                                                   Margin="0,10,0,0"
+                                                   VerticalAlignment="Center"
+                                                   Text="替换文本" />
+                                        <TextBox Grid.Row="1"
+                                                 Grid.Column="1"
+                                                 Margin="0,10,0,0"
+                                                 Height="28"
+                                                 Text="{Binding PostProcessing.SelectedRule.ReplaceText, UpdateSourceTrigger=PropertyChanged}" />
+                                        <CheckBox Grid.Row="2"
+                                                  Grid.Column="1"
+                                                  Margin="0,10,0,0"
+                                                  Content="忽略大小写"
+                                                  IsChecked="{Binding PostProcessing.SelectedRule.IgnoreCase}" />
+                                    </Grid>
+
+                                    <Grid Grid.Row="6"
+                                          Visibility="{Binding PostProcessing.SelectedRule.IsRegexReplace, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="96" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Row="0"
+                                                   Grid.Column="0"
+                                                   Margin="0,4,0,0"
+                                                   VerticalAlignment="Top"
+                                                   Text="Pattern" />
+                                        <TextBox Grid.Row="0"
+                                                 Grid.Column="1"
+                                                 AcceptsReturn="True"
+                                                 Height="56"
+                                                 Text="{Binding PostProcessing.SelectedRule.Pattern, UpdateSourceTrigger=PropertyChanged}"
+                                                 TextWrapping="Wrap" />
+                                        <TextBlock Grid.Row="1"
+                                                   Grid.Column="0"
+                                                   Margin="0,10,0,0"
+                                                   VerticalAlignment="Center"
+                                                   Text="Replacement" />
+                                        <TextBox Grid.Row="1"
+                                                 Grid.Column="1"
+                                                 Margin="0,10,0,0"
+                                                 Height="28"
+                                                 Text="{Binding PostProcessing.SelectedRule.Replacement, UpdateSourceTrigger=PropertyChanged}" />
+                                        <TextBlock Grid.Row="2"
+                                                   Grid.Column="0"
+                                                   Margin="0,10,0,0"
+                                                   VerticalAlignment="Center"
+                                                   Text="Options" />
+                                        <TextBox Grid.Row="2"
+                                                 Grid.Column="1"
+                                                 Margin="0,10,0,0"
+                                                 Height="28"
+                                                 Text="{Binding PostProcessing.SelectedRule.RegexOptions, UpdateSourceTrigger=PropertyChanged}" />
+                                    </Grid>
+
+                                    <Grid Grid.Row="6"
+                                          Visibility="{Binding PostProcessing.SelectedRule.IsEnglishAcronymJoin, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="72" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="8" />
+                                            <ColumnDefinition Width="72" />
+                                            <ColumnDefinition Width="80" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Row="0"
+                                                   Grid.Column="0"
+                                                   Grid.ColumnSpan="5"
+                                                   Foreground="#FF666666"
+                                                   Text="合并按字母分开的英文缩写，例如 G P T → GPT，保留原有大小写。"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Grid.Row="1"
+                                                   Grid.Column="0"
+                                                   Margin="0,10,0,0"
+                                                   VerticalAlignment="Center"
+                                                   Text="最少字母数" />
+                                        <TextBox Grid.Row="1"
+                                                 Grid.Column="1"
+                                                 Margin="0,10,0,0"
+                                                 Height="28"
+                                                 Text="{Binding PostProcessing.SelectedRule.MinLetters, UpdateSourceTrigger=PropertyChanged}" />
+                                        <TextBlock Grid.Row="1"
+                                                   Grid.Column="3"
+                                                   Margin="0,10,0,0"
+                                                   VerticalAlignment="Center"
+                                                   Text="最多字母数" />
+                                        <TextBox Grid.Row="1"
+                                                 Grid.Column="4"
+                                                 Margin="0,10,0,0"
+                                                 Height="28"
+                                                 Text="{Binding PostProcessing.SelectedRule.MaxLetters, UpdateSourceTrigger=PropertyChanged}" />
+                                    </Grid>
+
+                                    <StackPanel Grid.Row="6"
+                                                Visibility="{Binding PostProcessing.SelectedRule.IsChineseNumberNormalize, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <TextBlock Foreground="#FF666666"
+                                                   Text="将明确表示数值的中文数字转为阿拉伯数字，例如三十二个 → 32个。保留“一起”“一点问题”等词语及有歧义的表达。"
+                                                   TextWrapping="Wrap" />
+                                        <CheckBox Margin="0,12,0,0"
+                                                  Content="转换百分数，例如百分之十五 → 15%"
+                                                  IsChecked="{Binding PostProcessing.SelectedRule.ConvertPercentages}" />
+                                        <CheckBox Margin="0,10,0,0"
+                                                  Content="清理小数空格，例如数值是3. 14 → 数值是3.14"
+                                                  IsChecked="{Binding PostProcessing.SelectedRule.NormalizeDecimalSpacing}" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Row="6"
+                                                Visibility="{Binding PostProcessing.SelectedRule.IsEnglishCaseNormalize, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <TextBlock Foreground="#FF666666"
+                                                   Text="普通全大写英文词转为小写，例如 HELLO WORLD → hello world；保留已有的混合大小写。词表中的词统一为你填写的标准拼写。"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Margin="0,12,0,6"
+                                                   Text="保留词与标准拼写" />
+                                        <TextBox AcceptsReturn="True"
+                                                 Height="100"
+                                                 Text="{Binding PostProcessing.SelectedRule.CanonicalTerms, UpdateSourceTrigger=PropertyChanged}"
+                                                 TextWrapping="Wrap"
+                                                 VerticalScrollBarVisibility="Auto" />
+                                        <TextBlock Margin="0,6,0,0"
+                                                   Foreground="#FF666666"
+                                                   Text="每行一项，也可用逗号分隔，例如 API, GPT, OpenAI。留空表示不使用词表；可通过“恢复默认”重新载入默认词表。"
+                                                   TextWrapping="Wrap" />
+                                    </StackPanel>
+
+                                    <TextBlock Grid.Row="6"
+                                               Foreground="#FF666666"
+                                               Text="自动清理文本首尾的空白，无需配置其他参数。"
+                                               TextWrapping="Wrap"
+                                               Visibility="{Binding PostProcessing.SelectedRule.IsTrimWhitespace, Converter={StaticResource BoolToVisibilityConverter}}" />
                                 </Grid>
-                            </Grid>
+                            </ScrollViewer>
                         </Border>
                     </Grid>
 
